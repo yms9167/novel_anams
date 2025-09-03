@@ -1,5 +1,5 @@
 import streamlit as st
-import os.path as path
+import os
 
 # Streamlit 앱의 기본 설정
 st.set_page_config(layout="wide", page_title="AI 소설과 독자의 감정 연구")
@@ -16,9 +16,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# HTML 파일의 경로를 지정합니다.
-# 이 파일은 'htmls' 폴더 안에 'index.html'이라는 이름으로 있어야 합니다.
-html_file_path = path.join("htmls", "index.html")
+# 현재 스크립트 파일의 디렉토리를 가져옵니다.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# HTML 파일의 절대 경로를 지정합니다.
+html_file_path = os.path.join(current_dir, "htmls", "index.html")
 
 try:
     # HTML 파일을 읽어와 변수에 저장합니다.
