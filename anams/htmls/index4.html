@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정보과제연구 계획서 - DAG</title>
+    <!-- Tailwind CSS CDN 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb; /* 아주 밝은 회색/푸른색 배경 */
+        }
+        /* SVG 아이콘 스타일 */
+        .icon {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 0.75rem;
+            color: #0ea5e9; /* sky-500 */
+        }
+        /* Notion 스타일 구분선 */
+        .divider {
+            height: 1px;
+            background-color: #e5e7eb; /* gray-200 */
+            margin: 2rem 0;
+        }
+        /* 강조 텍스트 */
+        .highlight {
+            background-color: #fde68a; /* amber-200 */
+            padding: 0 4px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <!-- 메인 컨테이너 (최대 너비, 중앙 정렬) -->
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+        
+        <!-- 헤더 섹션: 연구 개요 -->
+        <header class="p-8 sm:p-12 bg-sky-600 text-white rounded-t-2xl">
+            <h1 class="text-4xl sm:text-5xl font-extrabold mb-2">정보과제연구 계획서</h1>
+            <h2 class="text-xl sm:text-2xl font-light opacity-90 border-t border-sky-400 pt-3 mt-3">
+                연구 주제: 방향성 비순환 그래프(DAG) 기반 할 일 관리 프로그램 제작
+            </h2>
+        </header>
+
+        <!-- 본문 섹션 -->
+        <main class="p-8 sm:p-12">
+            
+            <!-- 1. 연구 주제 -->
+            <section class="mb-10">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- Rocket Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.77-2.07.45-3.26C8.83 14.25 12 7.5 12 7.5c-2.73-1.63-4-4-4-4s1.77 1.37 4.5 3c-.34-.73-.85-1.44-1.39-2.08C12.92 5.56 16.5 4 16.5 4s-1.26 3.74-2 5c.84-.71 2.07-.77 3.26-.45C17.75 8.83 24.5 12 24.5 12s-1.63 2.73-4 4c1.37-1.77 3-4.5 3-4.5s-1.37 1.77-3 4.5c.73-.34 1.44-.85 2.08-1.39C18.44 12.92 14.86 16 14.86 16z"/><path d="M15 9.5l-4.5 4.5"/></svg>
+                    1. 연구 주제
+                </h3>
+                <p class="text-xl font-semibold text-gray-700 p-4 bg-sky-50 border border-sky-200 rounded-lg shadow-sm">
+                    방향성 비순환 그래프로 해야 할 일을 순차적으로 정리할 수 있는 프로그램 만들기
+                </p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 2. 서론 -->
+            <section class="mb-10">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- Lightbulb Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-.6 4-6.7 4-6.7-1.12.9-2.34 1.45-3.5 1.7C14.73 9.49 13.9 11.23 13 13c-.88 1.7-2.3 3-4 3-1.7 0-3.3-1.5-4-3-1.4-2.8-1-5.7.5-7.5C6.1 4.5 7.5 3 9 3c1.5 0 2.5 1.5 3 2.5s.4 3 0 4"/><path d="M12 19h3"/><path d="M12 22h3"/></svg>
+                    2. 서론
+                </h3>
+                <div class="space-y-4 text-gray-700">
+                    <div class="p-4 bg-white border border-gray-100 rounded-lg shadow-sm">
+                        <h4 class="font-semibold text-lg text-sky-600 mb-1">가. 연구 동기 및 필요성</h4>
+                        <p class="text-base leading-relaxed">
+                            한꺼번에 일이 많이 들어오면 어떤 일이 가장 중요하고, 어떤 일을 먼저 해야 할 지 정리해야 합니다. 하지만 그런 작업을 못하는 사람들도 있고, 정리를 해도 알기 어렵게 정리될 수 있습니다. 그래서 해야 할 일들의 내용들을 간단하게 <span class="highlight">시각적으로 정리해주는 프로그램</span>이 있으면 좋을 것 같다고 생각했습니다.
+                        </p>
+                    </div>
+                    <div class="p-4 bg-white border border-gray-100 rounded-lg shadow-sm">
+                        <h4 class="font-semibold text-lg text-sky-600 mb-1">나. 연구 목적</h4>
+                        <p class="text-base leading-relaxed">
+                            연구를 통해 해야 할 일들을 순차적으로 정리하는 프로그램을 만들어서 <span class="highlight">일의 정리에 들이는 시간을 줄이고 효율적으로 일할 수 있게 되는 것</span>을 목적으로 합니다.
+                        </p>
+                    </div>
+                    <div class="p-4 bg-white border border-gray-100 rounded-lg shadow-sm">
+                        <h4 class="font-semibold text-lg text-sky-600 mb-1">다. 연구 문제</h4>
+                        <ul class="list-disc list-inside ml-4 space-y-1 text-base">
+                            <li>어떤 일이 가장 중요하고 가장 먼저 해야 하는 일인가?</li>
+                            <li>왜 그 일이 가장 중요하고 가장 먼저 해야 하는가?</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 3. 이론적 배경 -->
+            <section class="mb-10">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- BookOpen Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s5 7 10 7 10-7 10-7"/><path d="M2 12l5-7 5 7 5-7 5 7"/></svg>
+                    3. 이론적 배경
+                </h3>
+                <div class="p-4 bg-amber-50 border-l-4 border-amber-400 rounded-lg shadow-sm text-gray-700">
+                    <h4 class="font-semibold text-lg text-amber-700 mb-1">가. 관련 이론/기술 및 선행 연구 조사</h4>
+                    <p class="text-base leading-relaxed">
+                        핵심 기술은 두 가지입니다:
+                        <ul class="list-disc list-inside ml-4 mt-2 space-y-1 text-base">
+                            <li>**방향성 비순환 그래프 (DAG):** 해야 할 일들을 순서와 의존성을 고려하여 <span class="font-bold">시각적으로 처리</span>하기 위한 기술.</li>
+                            <li>**AHP (Analytic Hierarchy Process):** 일의 중요도를 정확하게 파악하기 위해 여러 평가 기준과 대안을 계층적으로 구성하여 <span class="font-bold">중요도를 결정</span>하는 기법.</li>
+                        </ul>
+                    </p>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 4. 연구 내용 및 방법 -->
+            <section class="mb-10">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- FlaskConical Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2h7a2 2 0 0 1 2 2v10a2 2 0 0 0 2 2v2a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-2a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 0 2-2V4a2 2 0 0 1 2-2z"/><path d="M12 16v6"/><path d="M12 4v2"/><path d="M9 13h6"/></svg>
+                    4. 연구 내용 및 방법
+                </h3>
+                <h4 class="font-semibold text-lg text-sky-600 mb-2">가. 연구 대상, 절차, 방법 및 일정</h4>
+                <ol class="space-y-3 text-gray-700">
+                    <li class="p-3 bg-white border border-gray-200 rounded-lg shadow-sm flex items-start">
+                        <span class="text-amber-500 font-bold mr-3 text-xl leading-none">1.</span>
+                        <p class="text-base leading-relaxed">일의 중요도를 파악하는데 필요한 **평가 기준들을 세우고 평가 기준마다의 중요도를 정하는 단계**.</p>
+                    </li>
+                    <li class="p-3 bg-white border border-gray-200 rounded-lg shadow-sm flex items-start">
+                        <span class="text-amber-500 font-bold mr-3 text-xl leading-none">2.</span>
+                        <p class="text-base leading-relaxed">평가 기준을 바탕으로 일의 중요도를 파악하고 **DAG 그래프로 보여주는 프로그램을 제작하는 단계**.</p>
+                    </li>
+                    <li class="p-3 bg-white border border-gray-200 rounded-lg shadow-sm flex items-start">
+                        <span class="text-amber-500 font-bold mr-3 text-xl leading-none">3.</span>
+                        <p class="text-base leading-relaxed">실전에 대입해서 어떤 평가 기준들이 추가로 필요한지 분석하고 **프로그램을 개선 및 완성하는 단계**.</p>
+                    </li>
+                </ol>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 5. 기대 효과 및 활용 방안 -->
+            <section class="mb-10">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- Trophy Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a10 10 0 0 0 20 0z"/><path d="M12 19V5"/><path d="M8 5a4 4 0 0 1 8 0"/><path d="M15 15l-1 1"/></svg>
+                    5. 기대 효과 및 활용 방안
+                </h3>
+                <div class="p-6 bg-sky-50 border border-sky-200 rounded-lg shadow-md text-gray-700">
+                    <p class="text-base leading-relaxed">
+                        이 연구로 만들어진 프로그램을 이용하면 내가 해야 할 과제들의 순서를 정리하거나 특정 작업의 우선적으로 해야 할 일들을 찾을 수 있습니다.
+                        이를 통해 **일을 더 효율적인 시간으로 빠르게 처리**할 수 있으며, 결과적으로 <span class="highlight">장기적인 경제 발전</span>이 가능할 것으로 기대됩니다.
+                    </p>
+                </div>
+            </section>
+            
+            <div class="divider"></div>
+
+            <!-- 6. 참고 문헌 -->
+            <section class="mb-6">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 pb-2 border-b border-gray-100">
+                    <!-- Link Icon -->
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    6. 참고 문헌
+                </h3>
+                <ol class="list-decimal list-inside ml-4 space-y-2 text-gray-700">
+                    <li>신민욱, 강승식. (2024). 비순환 방향 그래프를 이용한 파이썬 스케줄러의 순환 탐지.</li>
+                    <li>김승현, 김영한. (2021). 쿠버네티스 환경에서의 작업 자동화를 위한 Argo Workflow 구조 분석.</li>
+                </ol>
+            </section>
+        </main>
+
+        <!-- 푸터 섹션 -->
+        <footer class="p-8 sm:p-12 bg-gray-800 text-white text-center rounded-b-2xl">
+            <p class="text-sm opacity-80">&copy; 2024 정보과제연구. 연구자: 양민석</p>
+        </footer>
+    </div>
+</body>
+</html>
