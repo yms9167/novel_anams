@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>팀 밸런스 분배기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .container {
+            max-width: 960px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-8 bg-white rounded-3xl shadow-2xl space-y-8 my-10">
+        <!-- Main Content Section -->
+        <main class="space-y-8">
+            <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-md">
+                <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 border-b-2 border-gray-200 pb-3 mb-4">팀 밸런스 분배기</h2>
+                <div class="space-y-6">
+                    <p class="text-gray-700">이 웹페이지는 학생들의 성적을 입력받아 조별 평균 점수가 고르게 되도록 팀을 구성하는 기능을 시뮬레이션합니다.</p>
+                    <div class="space-y-4">
+                        <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                            <label for="scores" class="w-full sm:w-auto font-medium text-gray-700">학생 성적 (쉼표로 구분):</label>
+                            <input type="text" id="scores" value="95, 88, 76, 92, 85, 80, 78, 65, 90, 81, 74, 98, 70, 83, 87, 79, 86, 91" class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                            <label for="num_teams" class="w-full sm:w-auto font-medium text-gray-700">팀 수:</label>
+                            <input type="number" id="num_teams" value="4" min="1" class="p-2 w-full sm:w-32 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button onclick="runSimulation()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out">
+                            팀 구성하기
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 결과 출력 섹션 -->
+            <section id="results" class="bg-white p-6 sm:p-8 rounded-2xl shadow-md hidden">
+                <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800 border-b-2 border-gray-200 pb-3 mb-4">결과</h2>
+                <div id="output" class="whitespace-pre-wrap text-gray-700"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- JavaScript for Simulation -->
+    <script>
+        function create_balanced_teams(scores, num_teams) {
+            if (!scores || num_teams <= 0) {
+                return [];
+            }
+            
+            // 1. 성적을 오름차순으로 정렬
+            const sorted_scores = scores.sort((a, b) => a - b);
+            const total_students = sorted_scores.length;
+
+            // 2. 각 조에 들어갈 학생 수 계산
+            const students_per_team = Math.floor(total_students / num_teams);
+            const remainder = total_students % num_teams;
+
+            const teams = Array.from({ length: num_teams }, () => []);
+            
+            // 3. '성적 순으로 친구들을 배열해서 비슷한 성적을 가진 친구들을 묶어서' ->
+            //    '각각의 배열에서 한 명씩 뽑아서 한 조에 넣는' 방식으로 조 구성
+            for (let i = 0; i < students_per_team; i++) {
+                for (let j = 0; j < num_teams; j++) {
+                    const index = i * num_teams + j;
+                    if (index < total_students) {
+                        teams[j].push(sorted_scores[index]);
+                    }
+                }
+            }
+
+            // 4. 남은 학생들 분배
+            let start_index = students_per_team * num_teams;
+            for (let j = 0; j < remainder; j++) {
+                if (start_index + j < total_students) {
+                    teams[j].push(sorted_scores[start_index + j]);
+                }
+            }
+            
+            return teams;
+        }
+
+        function runSimulation() {
+            const scoresInput = document.getElementById('scores').value;
+            const numTeamsInput = document.getElementById('num_teams').value;
+            const outputDiv = document.getElementById('output');
+            const resultsSection = document.getElementById('results');
+
+            let scores = scoresInput.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s));
+            const num_teams = parseInt(numTeamsInput);
+
+            if (scores.length === 0 || isNaN(num_teams) || num_teams <= 0) {
+                outputDiv.textContent = "오류: 성적과 팀 수를 올바르게 입력해주세요.";
+                resultsSection.classList.remove('hidden');
+                return;
+            }
+
+            const teams = create_balanced_teams(scores, num_teams);
+
+            let resultText = "--- 팀 생성 시작 ---\n\n";
+            let totalAverage = 0;
+            let totalStudents = 0;
+
+            teams.forEach((team, index) => {
+                const team_sum = team.reduce((acc, score) => acc + score, 0);
+                const team_avg = team.length > 0 ? team_sum / team.length : 0;
+                resultText += `Team ${index + 1} 성적: ${team.join(', ')}\n`;
+                resultText += `Team ${index + 1} 평균 점수: ${team_avg.toFixed(2)}\n\n`;
+                totalAverage += team_avg;
+                totalStudents += team.length;
+            });
+            
+            resultText += `--- 팀 생성 완료 ---`;
+
+            outputDiv.textContent = resultText;
+            resultsSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
