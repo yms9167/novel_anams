@@ -1,50 +1,95 @@
-from flask import Flask, render_template
+import streamlit as st
+import streamlit.components.v1 as components
+import os
 
-# Flask 애플리케이션 초기화 시 template_folder 경로를 'htmls'로 지정합니다.
-# 이 설정 덕분에 Flask는 'anams/htmls' 폴더에서 HTML 파일을 찾을 수 있습니다.
-app = Flask(__name__, template_folder='htmls')
+# 1. 파일 경로 설정
+# 이 코드를 실행하는 디렉토리 내에 'htmls' 폴더가 있고, 그 안에 HTML 파일들이 있다고 가정합니다.
+HTML_DIR = "htmls"
+PAGES = {
+    "1. AI 소설과 독자의 감정 연구": "index.html",
+    "2. 팀 밸런스 분배기": "index2.html",
+    "3. 알고리즘 성능 비교기": "index3.html",
+    "4. 정보과제연구 계획서": "index4.html",
+}
 
-# --- 웹 페이지 라우팅 설정 ---
+def load_html_content(filename):
+    """
+    지정된 HTML 파일의 내용을 읽어 반환합니다. 
+    파일을 찾지 못하거나 읽는 중 오류가 발생하면 사용자에게 안내할 HTML 코드를 반환합니다.
+    """
+    filepath = os.path.join(HTML_DIR, filename)
+    try:
+        # UTF-8 인코딩으로 파일을 읽습니다.
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML
+        return f"""
+        <div style="padding: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px; font-family: 'Inter', sans-serif;">
+            <h2 style="margin-top: 0; font-size: 1.5em;">🚨 파일 오류: {filepath}</h2>
+            <p>이 파일을 찾을 수 없습니다. 다음 사항을 확인해주세요:</p>
+            <ul style="padding-left: 20px;">
+                <li><code>app.py</code> 파일과 <strong>같은 위치</strong>에 <code>htmls</code> 폴더가 있습니까?</li>
+                <li><code>htmls</code> 폴더 안에 <strong><code>{filename}</code></strong> 파일이 정확히 존재합니까?</li>
+            </ul>
+        </div>
+        """
+    except Exception as e:
+        # 기타 읽기 오류
+        return f"""
+        <div style="padding: 20px; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; font-family: 'Inter', sans-serif;">
+            <h2 style="margin-top: 0; font-size: 1.5em;">⚠️ 파일 읽기 중 예외 발생</h2>
+            <p><strong>오류 내용:</strong> {str(e)}</p>
+        </div>
+        """
 
-# 1. 메인 페이지: index.html (AI 소설 연구)
-# http://0.0.0.0:8080/ 또는 http://0.0.0.0:8080/research
-@app.route('/')
-@app.route('/research')
-def novel_research():
-    """
-    index.html (AI 소설과 독자의 감정 연구) 파일을 렌더링합니다.
-    """
-    return render_template('index.html')
+def main():
+    """Streamlit 애플리케이션의 메인 함수입니다."""
+    
+    # Streamlit 페이지 설정
+    st.set_page_config(
+        page_title="HTML 파일 Streamlit 뷰어",
+        layout="wide", # 넓은 레이아웃 사용
+        initial_sidebar_state="expanded"
+    )
 
-# 2. 팀 밸런스 분배기 페이지: index2.html
-# http://0.0.0.0:8080/balancer
-@app.route('/balancer')
-def team_balancer():
-    """
-    index2.html (팀 밸런스 분배기) 파일을 렌더링합니다.
-    """
-    return render_template('index2.html')
+    st.sidebar.title("📚 프로젝트 페이지")
+    
+    # 2. 사이드바를 이용한 페이지 선택 네비게이션
+    selection_key = st.sidebar.selectbox(
+        "표시할 HTML 문서를 선택하세요:", 
+        list(PAGES.keys())
+    )
 
-# 3. 알고리즘 성능 비교기 페이지: index3.html
-# http://0.0.0.0:8080/performance
-@app.route('/performance')
-def algorithm_performance():
-    """
-    index3.html (알고리즘 성능 비교기) 파일을 렌더링합니다.
-    """
-    return render_template('index3.html')
+    selected_filename = PAGES[selection_key]
 
-# 4. 프로젝트 계획서 페이지: index4.html
-# http://0.0.0.0:8080/plan
-@app.route('/plan')
-def project_plan():
-    """
-    index4.html (정보과제연구 계획서) 파일을 렌더링합니다.
-    """
-    return render_template('index4.html')
+    st.title(f"📄 {selection_key.split('. ', 1)[1]} ({selected_filename})")
+    st.markdown("---")
 
-# 스크립트를 직접 실행할 때 Flask 서버를 실행합니다.
-if __name__ == '__main__':
-    # Flask 서버를 0.0.0.0 호스트와 8080 포트에서 실행합니다.
-    # debug=True 설정으로 코드를 수정할 때마다 자동으로 재시작됩니다.
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    # 3. HTML 파일 내용 로드
+    html_content = load_html_content(selected_filename)
+
+    # 4. Streamlit 컴포넌트를 사용하여 HTML 렌더링
+    # components.html을 사용하여 HTML, CSS, JavaScript를 샌드박스 환경에서 렌더링합니다.
+    # height를 1000px로 설정하여 충분한 공간을 확보하고 스크롤링을 활성화합니다.
+    components.html(
+        html_content,
+        height=1000,  # 렌더링 영역의 높이 (필요에 따라 조정 가능)
+        scrolling=True # 컨테이너 내에서 스크롤 허용
+    )
+
+    # 5. 추가 안내
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        f"""
+        **현재 파일:** `{selected_filename}`<br>
+        **경로:** `{HTML_DIR}/{selected_filename}`
+        """
+    )
+    if "오류:" in html_content:
+        st.error("파일 로드에 문제가 발생했습니다. 사이드바의 경로 안내를 확인해주세요.")
+    else:
+        st.success("HTML 콘텐츠가 성공적으로 로드되었습니다. JavaScript 및 동적 콘텐츠도 정상적으로 작동합니다.")
+
+if __name__ == "__main__":
+    main()
