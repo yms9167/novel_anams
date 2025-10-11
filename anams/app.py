@@ -23,14 +23,16 @@ def load_html_content(filename):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     except FileNotFoundError:
-        # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML
+        # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML (디자인을 눈에 띄게 수정)
         return f"""
-        <div style="padding: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px; font-family: 'Inter', sans-serif;">
-            <h2 style="margin-top: 0; font-size: 1.5em;">🚨 파일 오류: {filepath}</h2>
-            <p>이 파일을 찾을 수 없습니다. 다음 사항을 확인해주세요:</p>
-            <ul style="padding-left: 20px;">
-                <li><code>app.py</code> 파일과 <strong>같은 위치</strong>에 <code>htmls</code> 폴더가 있습니까?</li>
-                <li><code>htmls</code> 폴더 안에 <strong><code>{filename}</code></strong> 파일이 정확히 존재합니까?</li>
+        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; font-family: 'Inter', sans-serif; text-align: center;">
+            <h2 style="margin-top: 0; font-size: 2em; font-weight: 700;">🚫 파일 로드 실패 (404) 🚫</h2>
+            <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>경로 오류:</strong> <code>{filepath}</code> 파일을 찾을 수 없습니다.</p>
+            <hr style="border-color: #ef9a9a; margin: 20px 0;">
+            <p style="text-align: left; margin-left: auto; margin-right: auto; max-width: 400px;">다음 사항을 **반드시** 확인해주세요:</p>
+            <ul style="list-style-type: disc; text-align: left; margin-left: auto; margin-right: auto; max-width: 450px; padding-left: 20px; margin-top: 10px; font-size: 1.1em;">
+                <li style="margin-bottom: 8px;"><code>app.py</code> 파일과 <strong>같은 위치</strong>에 <code>htmls</code> 폴더가 있습니까?</li>
+                <li style="margin-bottom: 8px;"><code>htmls</code> 폴더 안에 <strong><code>{filename}</code></strong> 파일이 **정확히** 존재합니까? (대소문자 포함)</li>
             </ul>
         </div>
         """
@@ -86,10 +88,10 @@ def main():
         **경로:** `{HTML_DIR}/{selected_filename}`
         """
     )
-    if "오류:" in html_content:
-        st.error("파일 로드에 문제가 발생했습니다. 사이드바의 경로 안내를 확인해주세요.")
+    if "파일 로드 실패" in html_content: # 수정된 오류 메시지를 확인하도록 조건 변경
+        st.error("⚠️ 파일 로드에 문제가 발생했습니다. 위쪽의 빨간색 오류 메시지와 사이드바의 경로 안내를 확인해주세요.")
     else:
-        st.success("HTML 콘텐츠가 성공적으로 로드되었습니다. JavaScript 및 동적 콘텐츠도 정상적으로 작동합니다.")
+        st.success("✅ HTML 콘텐츠가 성공적으로 로드되었습니다. JavaScript 및 동적 콘텐츠도 정상적으로 작동합니다.")
 
 if __name__ == "__main__":
     main()
