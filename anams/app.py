@@ -25,15 +25,12 @@ def load_html_content(filename):
     except FileNotFoundError:
         # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML (디자인을 눈에 띄게 수정)
         return f"""
-        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; font-family: 'Inter', sans-serif; text-align: center;">
-            <h2 style="margin-top: 0; font-size: 2em; font-weight: 700;">🚫 파일 로드 실패 (404) 🚫</h2>
-            <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>경로 오류:</strong> <code>{filepath}</code> 파일을 찾을 수 없습니다.</p>
-            <hr style="border-color: #ef9a9a; margin: 20px 0;">
-            <p style="text-align: left; margin-left: auto; margin-right: auto; max-width: 400px;">다음 사항을 **반드시** 확인해주세요:</p>
-            <ul style="list-style-type: disc; text-align: left; margin-left: auto; margin-right: auto; max-width: 450px; padding-left: 20px; margin-top: 10px; font-size: 1.1em;">
-                <li style="margin-bottom: 8px;"><code>app.py</code> 파일과 <strong>같은 위치</strong>에 <code>htmls</code> 폴더가 있습니까?</li>
-                <li style="margin-bottom: 8px;"><code>htmls</code> 폴더 안에 <strong><code>{filename}</code></strong> 파일이 **정확히** 존재합니까? (대소문자 포함)</li>
-            </ul>
+        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; margin: 20px;">
+            <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">🚨 파일 로드 실패 (FileNotFoundError)</h2>
+            <p><strong>HTML 파일을 찾을 수 없습니다. 경로를 확인해주세요.</strong></p>
+            <p>현재 파일: {filename}</p>
+            <p>경로: {filepath}</p>
+            <p><strong>조치 방법:</strong> Streamlit을 실행하는 위치와 'htmls' 폴더의 위치를 확인하거나, app.py의 파일 경로 설정 방식을 수정해야 합니다.</p>
         </div>
         """
     except Exception as e:
