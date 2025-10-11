@@ -9,18 +9,11 @@
     <!-- Google Font: Inter (기본 폰트로 사용) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <style>
-        /* 기본 폰트 설정 및 배경색 */
-        body {
+        /* Streamlit 배경색과 섞이지 않도록 body 스타일 제거 */
+        .page-content {
+            /* 컨테이너의 너비, 그림자, 배경색을 Tailwind 클래스로 정의 */
             font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb; /* 아주 연한 회색 배경 */
-        }
-        /* Notion 스타일의 컨테이너 */
-        .notion-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
             background-color: #ffffff;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
         }
         /* 섹션 제목 스타일 */
         .section-title {
@@ -44,9 +37,12 @@
         }
     </style>
 </head>
-<body>
+<!-- body 태그에 배경색을 설정하지 않고, 내부 div에만 스타일을 적용하여 Streamlit의 배경과 충돌 방지 -->
+<body class="p-0 m-0">
 
-    <div class="notion-container rounded-lg">
+    <!-- Notion 스타일의 컨테이너 (Streamlit의 중앙 컨테이너처럼 동작하도록 설정) -->
+    <div class="page-content max-w-4xl mx-auto p-4 md:p-8 rounded-lg shadow-xl my-4">
+        
         <!-- 1. 헤더: 연구 주제 및 연구자 정보 -->
         <header class="mb-12 pt-4 border-b-4 border-yellow-400 pb-6">
             <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-2 leading-tight">
