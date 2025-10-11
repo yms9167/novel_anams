@@ -25,20 +25,20 @@ def load_html_content(filename):
     except FileNotFoundError:
         # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML (디자인을 눈에 띄게 수정)
         return f"""
-        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; margin: 20px;">
-            <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">🚨 파일 로드 실패 (FileNotFoundError)</h2>
-            <p><strong>HTML 파일을 찾을 수 없습니다. 경로를 확인해주세요.</strong></p>
-            <p>현재 파일: {filename}</p>
-            <p>경로: {filepath}</p>
-            <p><strong>조치 방법:</strong> Streamlit을 실행하는 위치와 'htmls' 폴더의 위치를 확인하거나, app.py의 파일 경로 설정 방식을 수정해야 합니다.</p>
+        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; font-family: sans-serif;">
+            <h2 style="margin-top: 0;">❌ 파일 로드 오류</h2>
+            <p><strong>'{filepath}'</strong> 파일을 찾을 수 없습니다. 경로와 파일명을 확인해주세요.</p>
+            <p>현재 설정된 HTML_DIR은 '{HTML_DIR}'입니다. 파일을 이 폴더에 저장했는지 확인하세요.</p>
+            <p>디버깅 정보: FileNotFoundError</p>
         </div>
         """
     except Exception as e:
-        # 기타 읽기 오류
+        # 기타 예외 발생 시 오류 메시지 HTML
         return f"""
-        <div style="padding: 20px; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; font-family: 'Inter', sans-serif;">
-            <h2 style="margin-top: 0; font-size: 1.5em;">⚠️ 파일 읽기 중 예외 발생</h2>
-            <p><strong>오류 내용:</strong> {str(e)}</p>
+        <div style="padding: 30px; background-color: #fff3e0; color: #ff9800; border: 2px dashed #ffcc80; border-radius: 12px; font-family: sans-serif;">
+            <h2 style="margin-top: 0;">⚠️ 파일 읽기 오류</h2>
+            <p>파일 <strong>'{filepath}'</strong> 을(를) 읽는 도중 예기치 않은 오류가 발생했습니다.</p>
+            <p>오류 메시지: {str(e)}</p>
         </div>
         """
 
@@ -62,6 +62,7 @@ def main():
 
     selected_filename = PAGES[selection_key]
 
+    # 파일 이름에서 숫자와 점을 제거하고 제목만 표시
     st.title(f"📄 {selection_key.split('. ', 1)[1]} ({selected_filename})")
     st.markdown("---")
 
@@ -73,22 +74,9 @@ def main():
     # height를 1000px로 설정하여 충분한 공간을 확보하고 스크롤링을 활성화합니다.
     components.html(
         html_content,
-        height=1000,  # 렌더링 영역의 높이 (필요에 따라 조정 가능)
-        scrolling=True # 컨테이너 내에서 스크롤 허용
+        height=1000,  # 렌더링 영역의 높이
+        scrolling=True # 스크롤 허용
     )
-
-    # 5. 추가 안내
-    st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        f"""
-        **현재 파일:** `{selected_filename}`<br>
-        **경로:** `{HTML_DIR}/{selected_filename}`
-        """
-    )
-    if "파일 로드 실패" in html_content: # 수정된 오류 메시지를 확인하도록 조건 변경
-        st.error("⚠️ 파일 로드에 문제가 발생했습니다. 위쪽의 빨간색 오류 메시지와 사이드바의 경로 안내를 확인해주세요.")
-    else:
-        st.success("✅ HTML 콘텐츠가 성공적으로 로드되었습니다. JavaScript 및 동적 콘텐츠도 정상적으로 작동합니다.")
 
 if __name__ == "__main__":
     main()
