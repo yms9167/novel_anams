@@ -2,7 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 
-# 파일 경로 및 표시 이름 정의 (파일이 'htmls' 폴더 안에 있다고 가정)
+# 파일 경로 및 표시 이름 정의 
+# app.py와 htmls 폴더가 모두 'anams' 폴더 안에 있으므로, 
+# app.py 기준으로 'htmls/'를 사용하여 상대 경로를 지정합니다.
 HTML_FILES = {
     "AI 소설과 독자의 감정 연구": "htmls/index.html",
     "팀 밸런스 분배기": "htmls/index2.html",
@@ -31,7 +33,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
+st.title("Streamlit HTML 파일 뷰어")
+st.markdown("왼쪽 사이드바에서 표시할 HTML 문서를 선택하세요.")
 st.divider()
 
 # --- 1. 사이드바 네비게이션 ---
@@ -61,6 +64,13 @@ if page_selection:
         width=None,
         scrolling=True
     )
-
+else:
+    st.info("왼쪽 사이드바에서 표시할 HTML 파일을 선택해주세요.")
 
 st.sidebar.markdown("---")
+st.sidebar.markdown(
+    """
+    **참고:** 이 앱은 **`anams`** 폴더 내의 **`htmls/`** 폴더에서 파일을 읽어오고 있습니다. 
+    파일 경로(예: `anams/htmls/index.html`)가 실제 환경과 일치하는지 확인해주세요.
+    """
+)
