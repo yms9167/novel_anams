@@ -21,24 +21,41 @@ def load_html_content(filename):
     try:
         # UTF-8 인코딩으로 파일을 읽습니다.
         with open(filepath, 'r', encoding='utf-8') as f:
-            return f.read()
+            content = f.read()
+            
+            # 파일 내용이 비어있는지 확인하는 로직 추가
+            if not content.strip():
+                return f"""
+                <div style="padding: 30px; background-color: #fffae6; color: #d39e00; border: 2px dashed #ffeeba; border-radius: 12px; font-family: 'Inter', sans-serif; text-align: center;">
+                    <h2 style="margin-top: 0; font-size: 2em; font-weight: 700;">⚠️ 파일 내용 없음 ⚠️</h2>
+                    <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>경로:</strong> <code>{filepath}</code></p>
+                    <hr style="border-color: #ffeeba; margin: 20px 0;">
+                    <p>파일은 찾았지만, <code>index4.html</code> 파일의 내용이 비어있거나 공백 문자만 포함하고 있습니다.</p>
+                    <p>파일 내용을 채우거나 확인해주세요.</p>
+                </div>
+                """
+            return content
+            
     except FileNotFoundError:
         # 파일이 없을 경우 사용자에게 표시할 오류 메시지 HTML (디자인을 눈에 띄게 수정)
         return f"""
-        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; font-family: sans-serif;">
-            <h2 style="margin-top: 0;">❌ 파일 로드 오류</h2>
-            <p><strong>'{filepath}'</strong> 파일을 찾을 수 없습니다. 경로와 파일명을 확인해주세요.</p>
-            <p>현재 설정된 HTML_DIR은 '{HTML_DIR}'입니다. 파일을 이 폴더에 저장했는지 확인하세요.</p>
-            <p>디버깅 정보: FileNotFoundError</p>
+        <div style="padding: 30px; background-color: #ffebee; color: #c62828; border: 2px dashed #ef9a9a; border-radius: 12px; font-family: 'Inter', sans-serif; text-align: center;">
+            <h2 style="margin-top: 0; font-size: 2em; font-weight: 700;">🚫 파일 로드 실패 (404) 🚫</h2>
+            <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>경로 오류:</strong> <code>{filepath}</code> 파일을 찾을 수 없습니다.</p>
+            <hr style="border-color: #ef9a9a; margin: 20px 0;">
+            <p style="text-align: left; margin-left: auto; margin-right: auto; max-width: 400px;">다음 사항을 **반드시** 확인해주세요:</p>
+            <ul style="list-style-type: disc; text-align: left; margin-left: auto; margin-right: auto; max-width: 450px; padding-left: 20px; margin-top: 10px; font-size: 1.1em;">
+                <li style="margin-bottom: 8px;"><code>app.py</code> 파일과 <strong>같은 위치</strong>에 <code>htmls</code> 폴더가 있습니까?</li>
+                <li style="margin-bottom: 8px;"><code>htmls</code> 폴더 안에 <strong><code>{filename}</code></strong> 파일이 **정확히** 존재합니까? (대소문자 포함)</li>
+            </ul>
         </div>
         """
     except Exception as e:
-        # 기타 예외 발생 시 오류 메시지 HTML
+        # 기타 읽기 오류
         return f"""
-        <div style="padding: 30px; background-color: #fff3e0; color: #ff9800; border: 2px dashed #ffcc80; border-radius: 12px; font-family: sans-serif;">
-            <h2 style="margin-top: 0;">⚠️ 파일 읽기 오류</h2>
-            <p>파일 <strong>'{filepath}'</strong> 을(를) 읽는 도중 예기치 않은 오류가 발생했습니다.</p>
-            <p>오류 메시지: {str(e)}</p>
+        <div style="padding: 20px; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; font-family: 'Inter', sans-serif;">
+            <h2 style="margin-top: 0; font-size: 1.5em;">⚠️ 파일 읽기 중 예외 발생</h2>
+            <p><strong>오류 내용:</strong> {str(e)}</p>
         </div>
         """
 
@@ -62,7 +79,6 @@ def main():
 
     selected_filename = PAGES[selection_key]
 
-    # 파일 이름에서 숫자와 점을 제거하고 제목만 표시
     st.title(f"📄 {selection_key.split('. ', 1)[1]} ({selected_filename})")
     st.markdown("---")
 
@@ -74,9 +90,25 @@ def main():
     # height를 1000px로 설정하여 충분한 공간을 확보하고 스크롤링을 활성화합니다.
     components.html(
         html_content,
-        height=1000,  # 렌더링 영역의 높이
-        scrolling=True # 스크롤 허용
+        height=1000,  # 렌더링 영역의 높이 (필요에 따라 조정 가능)
+        scrolling=True # 컨테이너 내에서 스크롤 허용
     )
+
+    # 5. 추가 안내
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        f"""
+        **현재 파일:** `{selected_filename}`<br>
+        **경로:** `{HTML_DIR}/{selected_filename}`
+        """
+    )
+    # 오류 메시지 확인 로직 수정: 파일 로드 실패뿐만 아니라 파일 내용 없음도 확인
+    if "파일 로드 실패" in html_content:
+        st.error("⚠️ 파일 로드에 문제가 발생했습니다. 위쪽의 **빨간색** 오류 메시지를 확인하고 파일 경로를 수정해주세요.")
+    elif "파일 내용 없음" in html_content:
+        st.warning("❗ 파일은 찾았지만 내용이 비어 있습니다. 위쪽의 **노란색** 경고 메시지를 확인하고 파일 내용을 채워주세요.")
+    else:
+        st.success("✅ HTML 콘텐츠가 성공적으로 로드되었습니다. JavaScript 및 동적 콘텐츠도 정상적으로 작동합니다.")
 
 if __name__ == "__main__":
     main()
