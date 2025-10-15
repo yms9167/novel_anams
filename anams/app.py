@@ -70,9 +70,6 @@ if page_selection:
     
     # 파일 내용을 불러옴
     html_content = load_html_content(filepath_to_load)
-    
-    st.subheader(f"📄 {page_selection} 미리보기")
-    
     # st.components.v1.html을 사용하여 HTML 내용을 Streamlit 앱에 임베드합니다.
     # height를 충분히 주어 스크롤이 가능하도록 설정
     components.html(
@@ -85,3 +82,4 @@ else:
     st.info("왼쪽 사이드바에서 표시할 HTML 파일을 선택해주세요.")
 
 st.sidebar.markdown("---")
+
