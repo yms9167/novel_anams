@@ -31,8 +31,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("Streamlit HTML 파일 뷰어")
-st.markdown("왼쪽 사이드바에서 표시할 HTML 문서를 선택하세요.")
+
 st.divider()
 
 # --- 1. 사이드바 네비게이션 ---
@@ -62,13 +61,7 @@ if page_selection:
         width=None,
         scrolling=True
     )
-else:
-    st.info("왼쪽 사이드바에서 표시할 HTML 파일을 선택해주세요.")
+
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(
-    """
-    **참고:** 이 앱은 `htmls/` 폴더에서 파일을 읽어오려고 시도합니다. 
-    파일 경로(예: `htmls/index.html`)가 실제 환경과 일치해야 합니다.
-    """
-)
+
