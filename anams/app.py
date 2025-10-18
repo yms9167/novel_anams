@@ -18,11 +18,12 @@ def load_html_content(filepath):
     try:
         # 파일이 실제로 존재하는지 확인
         if not os.path.exists(filepath):
+            # 오류 메시지 디자인 개선 및 경로 정보 명확화
             return f"""
-            <div style='padding: 20px; color: #991b1b; background-color: #fca5a5; border: 1px solid #dc2626; border-radius: 8px; font-family: sans-serif;'>
-                <h2>파일 오류: 경로를 찾을 수 없습니다!</h2>
-                <p>경로를 확인해주세요: <strong>{filepath}</strong></p>
-                <p><strong>조치:</strong> HTML 파일을 'htmls' 폴더 안에 넣었는지 확인해주세요.</p>
+            <div style='padding: 20px; color: #b91c1c; background-color: #fef2f2; border: 2px dashed #f87171; border-radius: 8px; font-family: sans-serif;'>
+                <h2 style='font-size: 1.25rem; font-weight: 700; margin-bottom: 10px;'>🚨 파일 오류: 경로를 찾을 수 없습니다!</h2>
+                <p style='margin-bottom: 10px;'><strong>요청 경로:</strong> <code style='background-color: #fce7f3; padding: 3px 6px; border-radius: 4px; color: #c026d3;'>{filepath}</code></p>
+                <p><strong>조치:</strong> 'htmls' 폴더가 'app.py'와 같은 위치에 있으며, 그 안에 해당 파일이 정확한 이름으로 존재하는지 확인해 주세요. (대소문자 구분 확인)</p>
             </div>"""
         
         # UTF-8 인코딩으로 파일 내용을 읽어옴
@@ -31,8 +32,8 @@ def load_html_content(filepath):
     except Exception as e:
         # 파일 읽기 중 발생할 수 있는 기타 오류 처리
         return f"""
-        <div style='padding: 20px; color: #991b1b; background-color: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; font-family: sans-serif;'>
-            <h2>파일 읽기 중 오류 발생</h2>
+        <div style='padding: 20px; color: #92400e; background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; font-family: sans-serif;'>
+            <h2>⚠️ 파일 읽기 중 오류 발생</h2>
             <p>오류 내용: {e}</p>
         </div>"""
 
