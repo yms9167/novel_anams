@@ -5,7 +5,7 @@ import os
 # 파일 경로 및 표시 이름 정의 
 # app.py와 htmls 폴더가 모두 'anams' 폴더 안에 있으므로, 
 # app.py 기준으로 'htmls/'를 사용하여 상대 경로를 지정합니다.
-HTML_FILES = {
+RAW_HTML_FILES = {
     "AI 소설과 독자의 감정 연구 (index.html)": "htmls/index.html",
     "팀 밸런스 분배기 (index2.html)": "htmls/index2.html",
     "알고리즘 성능 비교기 (index3.html)": "htmls/index3.html",
@@ -13,10 +13,17 @@ HTML_FILES = {
     "데이터 패킷 최단 경로 보고서 (index5.html)": "htmls/index5.html",
 }
 
+# 실제로 존재하는 파일만 목록에 포함시키기 위한 필터링
+HTML_FILES = {
+    display_name: filepath 
+    for display_name, filepath in RAW_HTML_FILES.items()
+    if os.path.exists(filepath)
+}
+
 def load_html_content(filepath):
     """지정된 경로에서 HTML 파일 내용을 읽어옵니다."""
     try:
-        # 파일이 실제로 존재하는지 확인
+        # 파일 존재 여부는 이미 HTML_FILES를 구성할 때 확인했으나, 혹시 모를 상황에 대비하여 남겨둡니다.
         if not os.path.exists(filepath):
             # 오류 메시지 디자인 개선 및 경로 정보 명확화
             return f"""
@@ -52,10 +59,14 @@ st.divider()
 st.sidebar.title("HTML 문서 목록")
 
 # 사용자가 선택할 수 있도록 파일 목록 표시
-page_selection = st.sidebar.selectbox(
-    "문서를 선택하세요:",
-    list(HTML_FILES.keys())
-)
+if not HTML_FILES:
+    st.sidebar.warning("감지된 HTML 파일이 없습니다. 'htmls' 폴더와 파일 이름을 확인해주세요.")
+    page_selection = None
+else:
+    page_selection = st.sidebar.selectbox(
+        "문서를 선택하세요:",
+        list(HTML_FILES.keys())
+    )
 
 # --- 2. HTML 렌더링 ---
 if page_selection:
@@ -67,5 +78,7 @@ if page_selection:
     
     # Streamlit 컴포넌트를 사용하여 HTML 내용을 렌더링 (높이 설정 필수)
     components.html(html_content, height=800, scrolling=True)
+elif not HTML_FILES:
+    st.error("불러올 수 있는 HTML 파일이 없습니다. 파일 경로 및 이름(`htmls/index.html` 등)을 확인해주세요.")
 else:
     st.info("사이드바에서 문서를 선택하여 내용을 확인하세요.")
