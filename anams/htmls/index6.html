@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 건강 코치 및 운동 추천</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 기본 폰트 설정 및 배경 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Slate 50 */
+        }
+        /* 컨테이너 중앙 정렬 및 스타일 */
+        .container-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 bg-gray-50">
+    <div class="container-wrapper">
+        <div class="card">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-3 text-center">
+                💪 AI 맞춤 운동 추천 (HTML UI)
+            </h1>
+            <p class="text-center text-sm text-red-600 font-semibold mb-6 p-2 bg-red-50 rounded-lg">
+                ⚠️ **주의:** 이 HTML UI는 현재 Streamlit의 Python 모델 로직과 직접 통신할 수 없습니다. 
+                입력 후 하단의 **'Streamlit으로 예측 실행'** 버튼을 사용해 주세요.
+            </p>
+
+            <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- 1. 현재 정보 -->
+                <div class="md:col-span-2">
+                    <h2 class="text-xl font-bold text-indigo-700 mb-3 border-b-2 border-indigo-100 pb-1">현재 신체 정보</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="input-group">
+                            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">현재 몸무게 (kg)</label>
+                            <input type="number" id="weight" value="70" min="10" max="300" step="0.1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                        <div class="input-group">
+                            <label for="height" class="block text-sm font-medium text-gray-700 mb-1">키 (cm)</label>
+                            <input type="number" id="height" value="175" min="50" max="250" step="0.1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                        <div class="input-group">
+                            <label for="heartRate" class="block text-sm font-medium text-gray-700 mb-1">평균 심박수 (bpm)</label>
+                            <input type="number" id="heartRate" value="75" min="40" max="200" step="1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 목표 정보 -->
+                <div class="md:col-span-2">
+                    <h2 class="text-xl font-bold text-indigo-700 mb-3 border-b-2 border-indigo-100 pb-1">목표 설정</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label for="targetWeight" class="block text-sm font-medium text-gray-700 mb-1">목표 몸무게 (kg)</label>
+                            <input type="number" id="targetWeight" value="65" min="10" max="300" step="0.1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                        <div class="input-group">
+                            <label for="targetDuration" class="block text-sm font-medium text-gray-700 mb-1">목표 기간 (일)</label>
+                            <input type="number" id="targetDuration" value="90" min="1" max="3650" step="1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 운동 습관 -->
+                <div class="md:col-span-2">
+                    <h2 class="text-xl font-bold text-indigo-700 mb-3 border-b-2 border-indigo-100 pb-1">운동 습관</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label for="workoutDays" class="block text-sm font-medium text-gray-700 mb-1">주당 운동 일수 (일)</label>
+                            <input type="range" id="workoutDays" value="3" min="0" max="7" step="1"
+                                oninput="document.getElementById('daysValue').innerText = this.value + '일'"
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                            <span id="daysValue" class="text-indigo-600 font-semibold mt-1 block text-right">3일</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="workoutTime" class="block text-sm font-medium text-gray-700 mb-1">일 당 운동 시간 (시간)</label>
+                            <input type="number" id="workoutTime" value="1.0" min="0.0" max="5.0" step="0.1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 4. 예측 버튼 및 메시지 -->
+                <div class="md:col-span-2 mt-4">
+                    <button type="submit" id="predictButton"
+                        class="w-full py-3 px-6 bg-indigo-600 text-white font-bold text-lg rounded-lg hover:bg-indigo-700 transition duration-200 shadow-md shadow-indigo-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
+                        운동 추천받기 (Streamlit 연동 필요)
+                    </button>
+                    <div id="resultMessage" class="mt-4 p-3 text-center rounded-lg bg-yellow-100 text-yellow-800 hidden font-medium">
+                        HTML 입력이 완료되었습니다. Streamlit 페이지를 스크롤하여 하단의 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('healthForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // HTML UI에서 데이터를 추출 (실제로는 이 데이터를 Streamlit으로 전달할 방법이 복잡함)
+            const data = {
+                weight: parseFloat(document.getElementById('weight').value),
+                height: parseFloat(document.getElementById('height').value),
+                heartRate: parseInt(document.getElementById('heartRate').value),
+                targetWeight: parseFloat(document.getElementById('targetWeight').value),
+                targetDuration: parseInt(document.getElementById('targetDuration').value),
+                workoutDays: parseInt(document.getElementById('workoutDays').value),
+                workoutTime: parseFloat(document.getElementById('workoutTime').value),
+            };
+
+            // 사용자에게 Streamlit 하단 버튼을 누르도록 안내하는 메시지를 표시
+            const resultMessage = document.getElementById('resultMessage');
+            resultMessage.classList.remove('hidden');
+            resultMessage.innerHTML = `✅ 입력 데이터 추출 완료. 현재 몸무게: ${data.weight}kg, 목표: ${data.targetWeight}kg.<br>Streamlit 페이지를 스크롤하여 하단의 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.`;
+        });
+        
+        // 초기 슬라이더 값 설정
+        window.onload = function() {
+            document.getElementById('daysValue').innerText = document.getElementById('workoutDays').value + '일';
+        };
+    </script>
+</body>
+</html>
