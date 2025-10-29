@@ -1,0 +1,270 @@
+import streamlit as st
+import streamlit.components.v1 as components
+import os
+import json
+import numpy as np
+import time
+import requests
+
+# --- Orange 모델 라이브러리 및 서비스 임포트 시도 ---
+# Orange 라이브러리가 설치되어 있어야 합니다 (pip install orange3)
+try:
+    import Orange
+    from Orange.data import Table, Domain, ContinuousVariable
+    ORANGE_AVAILABLE = True
+except ImportError:
+    ORANGE_AVAILABLE = False
+    # Orange 라이브러리가 없으면 예측은 시뮬레이션으로 대체됩니다.
+
+# --- 파일 및 경로 설정 ---
+HTML_FILE_NAME = 'index6.html'
+HTML_FOLDER = 'htmls'
+HTML_FILE_PATH = os.path.join(HTML_FOLDER, HTML_FILE_NAME)
+
+MODEL_FILES = {
+    'RNN': '렬뉴.pkcls',
+    'SVM': 'SVM.pkcls',
+    'kNN': 'kNN정보과제.pkcls'
+}
+
+# --- 헬퍼 함수: HTML 내용 로드 ---
+def load_html_content(filepath):
+    """지정된 경로에서 HTML 파일 내용을 읽어옵니다."""
+    if not os.path.exists(filepath):
+        return f"<div style='padding: 20px; color: red;'>오류: HTML 파일을 찾을 수 없습니다: <strong>{filepath}</strong></div>"
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"<div style='padding: 20px; color: red;'>파일을 읽는 중 오류가 발생했습니다: {e}</div>"
+
+# --- Orange 모델 로드 및 예측 로직 ---
+@st.cache_resource
+def load_orange_models():
+    """앱 시작 시 Orange 모델 파일들을 로드합니다."""
+    loaded_models = {}
+    if not ORANGE_AVAILABLE:
+        return loaded_models, False, "Orange 라이브러리가 설치되지 않았습니다."
+
+    success_flag = True
+    messages = []
+    
+    for key, filename in MODEL_FILES.items():
+        try:
+            # 파일 존재 여부 확인
+            if not os.path.exists(filename):
+                messages.append(f"❌ {filename} 파일을 찾을 수 없습니다. (경로 확인 필요)")
+                loaded_models[key] = None
+                success_flag = False
+                continue
+
+            model = Orange.classification.load(filename)
+            loaded_models[key] = model
+            messages.append(f"✅ {key} 모델 로드 성공.")
+        except Exception as e:
+            messages.append(f"❌ {key} 모델 로드 실패. 오류: {e}")
+            loaded_models[key] = None
+            success_flag = False
+            
+    if success_flag:
+        return loaded_models, True, "모든 Orange 모델 로드 완료."
+    else:
+        return loaded_models, False, "\n".join(messages)
+
+def predict_with_orange_models(data_input, loaded_models):
+    """로드된 Orange 모델로 예측을 수행합니다."""
+    
+    if not loaded_models or not any(loaded_models.values()):
+        return None, "Orange 모델 로드 실패 또는 라이브러리 없음."
+
+    try:
+        # 입력 특징 정의 (순서는 모델 학습 시 사용한 순서와 일치해야 합니다)
+        features = [
+            ContinuousVariable('weight'), ContinuousVariable('height'), ContinuousVariable('heartRate'), 
+            ContinuousVariable('targetWeight'), ContinuousVariable('targetDuration'), 
+            ContinuousVariable('workoutDays'), ContinuousVariable('workoutTime'),
+        ]
+        test_domain = Domain(features)
+        
+        # 입력값을 Orange Table 형태로 변환
+        data_vector = [
+            data_input['weight'], data_input['height'], data_input['heartRate'],
+            data_input['targetWeight'], data_input['targetDuration'],
+            data_input['workoutDays'], data_input['workoutTime'],
+        ]
+        data_instance = Table(test_domain, [data_vector])
+        
+        predictions = {}
+        for key, model in loaded_models.items():
+            if model:
+                # model()을 사용하여 예측 수행
+                prediction_index = int(model(data_instance)[0])
+                # 예측된 클래스 이름 가져오기
+                class_name = model.domain.class_var.values[prediction_index]
+                predictions[key] = class_name
+            # 모델 로드에 실패했거나 (model is None) 예측 불가능한 경우 키를 추가하지 않음
+        
+        if predictions:
+            return predictions, "실제 Orange 모델 예측 성공"
+        else:
+            return None, "로드된 모델이 없어 예측 불가"
+
+    except Exception as e:
+        return None, f"예측 로직 오류 발생: {e}"
+
+def simulate_orange_prediction(data_input):
+    """모델 로드 실패 시 예측을 시뮬레이션합니다."""
+    # 시뮬레이션 로직 (이전 코드와 동일)
+    target_diff = data_input['weight'] - data_input['targetWeight']
+    
+    if target_diff < 0 or data_input['targetDuration'] < 7:
+        result = "요가/필라테스"
+    elif data_input['workoutDays'] >= 5 and data_input['workoutTime'] >= 1.5:
+        result = "복합 트레이닝"
+    elif data_input['heartRate'] > 80:
+        result = "수영"
+    else:
+        result = "런닝"
+
+    return {
+        'RNN': result, 
+        'SVM': result, 
+        'kNN': result
+    }, "Orange 모델 로드 실패로 시뮬레이션 예측 수행"
+
+def get_ai_coach_recommendation(data_input, predictions):
+    """Gemini API를 호출하여 예측 결과를 분석하고 맞춤형 코멘트를 생성합니다."""
+    
+    all_preds = list(predictions.values())
+    unique, counts = np.unique(all_preds, return_counts=True)
+    final_recommendation = unique[np.argmax(counts)]
+
+    system_prompt = (
+        "당신은 사용자 데이터와 머신러닝 모델의 예측을 기반으로 맞춤형 운동 종목을 추천하는 전문 AI 건강 코치입니다. "
+        "친절하고 동기 부여가 되는 톤으로, 데이터를 분석하고 최종 추천 종목을 제시하며, 목표 달성 전략을 요약하여 한국어로 답변하세요. "
+        "응답은 제목 없이 단락으로 구성하고, 예측 결과와 사용자 목표를 명확하게 언급하세요."
+    )
+
+    user_query = f"""
+    사용자 데이터: (몸무게: {data_input['weight']}kg, 키: {data_input['height']}cm, 심박수: {data_input['heartRate']}bpm, 목표 몸무게: {data_input['targetWeight']}kg, 목표 기간: {data_input['targetDuration']}일, 주당 운동 횟수: {data_input['workoutDays']}일, 일당 운동 시간: {data_input['workoutTime']}시간)
+    세 가지 머신러닝 모델의 예측 결과: {predictions}
+    최종 추천 종목: {final_recommendation}
+    위 정보를 바탕으로 사용자에게 동기 부여가 되는 전문적인 추천 코멘트를 작성해 주세요.
+    """
+    
+    apiKey = "" 
+    apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key="
+
+    payload = { "contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]} }
+
+    try:
+        max_retries = 3
+        wait_time = 1
+        response = None
+        for attempt in range(max_retries):
+            response = requests.post(apiUrl, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
+            if response.status_code == 200:
+                break
+            time.sleep(wait_time)
+            wait_time *= 2
+        
+        response.raise_for_status()
+        result = response.json()
+        text = result['candidates'][0]['content']['parts'][0]['text']
+        return text
+
+    except Exception as e:
+        return (
+            "죄송합니다. AI 코치 연결에 실패했습니다. (오류: " + str(e) + 
+            ") 하지만 모델들은 " + final_recommendation + "를 추천하고 있습니다."
+        )
+
+
+# --- Streamlit UI 구현 ---
+def app():
+    st.set_page_config(layout="wide", page_title="Streamlit 통합 앱")
+    
+    st.title("Streamlit + HTML/JS + Orange 예측 통합 데모")
+    st.markdown("이 앱은 HTML UI를 포함하고, Streamlit의 Python 로직(Orange 모델)으로 예측을 수행합니다.")
+    st.divider()
+
+    # --- 모델 로드 ---
+    loaded_models, model_load_success, load_message = load_orange_models()
+    
+    # 모델 로드 상태 표시
+    if model_load_success:
+        st.success(f"모델 로드 상태: {load_message}")
+    elif ORANGE_AVAILABLE:
+        st.warning(f"모델 로드 상태: {load_message}. 예측은 시뮬레이션으로 대체됩니다.")
+    else:
+        st.info(f"모델 로드 상태: {load_message}. 예측은 시뮬레이션으로 진행됩니다.")
+
+    
+    # --- HTML UI 표시 ---
+    st.header("1. HTML UI 표시")
+    st.markdown("⚠️ HTML 파일 내의 JavaScript 코드는 Streamlit의 Python 코드를 직접 호출할 수 없습니다. 따라서 아래 HTML은 UI만 보여줍니다.")
+    
+    # HTML 파일 내용 로드 및 컴포넌트로 삽입
+    html_content = load_html_content(HTML_FILE_PATH)
+    components.html(html_content, height=800, scrolling=True)
+
+    st.divider()
+    
+    # --- Streamlit에서 직접 데이터를 받아 예측 수행 (실제 예측 경로) ---
+    st.header("2. Streamlit 예측 기능 (Python 로직 실행)")
+    
+    with st.form("prediction_form"):
+        st.markdown("HTML UI의 값을 **Streamlit 위젯**에 다시 입력하여 예측 기능을 사용해 보세요.")
+        
+        col1, col2, col3 = st.columns(3)
+        weight = col1.number_input("현재 몸무게 (kg)", min_value=10.0, max_value=300.0, value=70.0, step=0.1, key="w")
+        height = col2.number_input("키 (cm)", min_value=50.0, max_value=250.0, value=175.0, step=0.1, key="h")
+        heartRate = col3.number_input("평균 심박수 (bpm)", min_value=40, max_value=200, value=75, step=1, key="hr")
+        
+        col4, col5 = st.columns(2)
+        targetWeight = col4.number_input("목표 몸무게 (kg)", min_value=10.0, max_value=300.0, value=65.0, step=0.1, key="tw")
+        targetDuration = col5.number_input("목표 기간 (일)", min_value=1, max_value=3650, value=90, step=1, key="td")
+        
+        col6, col7 = st.columns(2)
+        workoutDays = col6.slider("주당 운동하는 일 수 (일)", min_value=0, max_value=7, value=3, key="wd")
+        workoutTime = col7.number_input("일 당 운동하는 시간 (시간)", min_value=0.0, max_value=5.0, value=1.0, step=0.1, key="wt")
+        
+        submitted = st.form_submit_button("Streamlit으로 예측 실행")
+
+        if submitted:
+            # 1. 입력 데이터 준비
+            data_input = {
+                'weight': weight, 'height': height, 'heartRate': heartRate, 
+                'targetWeight': targetWeight, 'targetDuration': targetDuration, 
+                'workoutDays': workoutDays, 'workoutTime': workoutTime
+            }
+
+            with st.spinner("모델 예측 및 AI 코치 분석 중..."):
+                # 2. 예측 수행: 모델 로드 성공 여부에 따라 실제 예측 또는 시뮬레이션 선택
+                if model_load_success and ORANGE_AVAILABLE:
+                    predictions, status_message = predict_with_orange_models(data_input, loaded_models)
+                else:
+                    predictions, status_message = simulate_orange_prediction(data_input)
+                    
+                st.caption(f"*(예측 상태: {status_message})*")
+
+                # 3. 결과 표시
+                if predictions:
+                    col_p1, col_p2, col_p3 = st.columns(3)
+                    cols = [col_p1, col_p2, col_p3]
+                    
+                    for i, (model_name, prediction) in enumerate(predictions.items()):
+                        with cols[i]:
+                            st.metric(label=f"모델 {model_name} 예측", value=prediction)
+                    
+                    # AI 코치 코멘트 생성
+                    ai_commentary = get_ai_coach_recommendation(data_input, predictions)
+                    
+                    st.markdown("### 🧑‍⚕️ AI 코치의 종합 분석")
+                    st.write(ai_commentary)
+                else:
+                    st.error("예측 결과를 얻을 수 없습니다. 모델 파일이나 입력 데이터를 확인해 주세요.")
+
+if __name__ == "__main__":
+    app()
