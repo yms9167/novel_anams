@@ -33,8 +33,8 @@
                 💪 AI 맞춤 운동 추천 (HTML UI)
             </h1>
             <p class="text-center text-sm text-red-600 font-semibold mb-6 p-2 bg-red-50 rounded-lg">
-                ⚠️ **주의:** 이 HTML UI는 현재 Streamlit의 Python 모델 로직과 직접 통신할 수 없습니다. 
-                입력 후 하단의 **'Streamlit으로 예측 실행'** 버튼을 사용해 주세요.
+                ⚠️ **주의:** HTML에서 입력된 데이터를 사용하려면 '운동 추천받기' 버튼 클릭 후 **페이지가 새로고침됩니다.**
+                이후 Streamlit 페이지 하단으로 스크롤하여 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.
             </p>
 
             <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -100,10 +100,10 @@
                 <div class="md:col-span-2 mt-4">
                     <button type="submit" id="predictButton"
                         class="w-full py-3 px-6 bg-indigo-600 text-white font-bold text-lg rounded-lg hover:bg-indigo-700 transition duration-200 shadow-md shadow-indigo-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
-                        운동 추천받기 (Streamlit 연동 필요)
+                        운동 추천받기 (Streamlit 연동을 위해 새로고침)
                     </button>
                     <div id="resultMessage" class="mt-4 p-3 text-center rounded-lg bg-yellow-100 text-yellow-800 hidden font-medium">
-                        HTML 입력이 완료되었습니다. Streamlit 페이지를 스크롤하여 하단의 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.
+                        <!-- 메시지는 JS에서 업데이트됩니다. -->
                     </div>
                 </div>
             </form>
@@ -114,26 +114,51 @@
         document.getElementById('healthForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // HTML UI에서 데이터를 추출 (실제로는 이 데이터를 Streamlit으로 전달할 방법이 복잡함)
+            // 1. HTML UI에서 데이터를 추출
             const data = {
-                weight: parseFloat(document.getElementById('weight').value),
-                height: parseFloat(document.getElementById('height').value),
-                heartRate: parseInt(document.getElementById('heartRate').value),
-                targetWeight: parseFloat(document.getElementById('targetWeight').value),
-                targetDuration: parseInt(document.getElementById('targetDuration').value),
-                workoutDays: parseInt(document.getElementById('workoutDays').value),
-                workoutTime: parseFloat(document.getElementById('workoutTime').value),
+                w: parseFloat(document.getElementById('weight').value), // w for weight
+                h: parseFloat(document.getElementById('height').value), // h for height
+                hr: parseInt(document.getElementById('heartRate').value), // hr for heartRate
+                tw: parseFloat(document.getElementById('targetWeight').value), // tw for targetWeight
+                td: parseInt(document.getElementById('targetDuration').value), // td for targetDuration
+                wd: parseInt(document.getElementById('workoutDays').value), // wd for workoutDays
+                wt: parseFloat(document.getElementById('workoutTime').value), // wt for workoutTime
             };
+            
+            // 2. 쿼리 문자열 생성
+            const params = new URLSearchParams(data).toString();
 
-            // 사용자에게 Streamlit 하단 버튼을 누르도록 안내하는 메시지를 표시
-            const resultMessage = document.getElementById('resultMessage');
-            resultMessage.classList.remove('hidden');
-            resultMessage.innerHTML = `✅ 입력 데이터 추출 완료. 현재 몸무게: ${data.weight}kg, 목표: ${data.targetWeight}kg.<br>Streamlit 페이지를 스크롤하여 하단의 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.`;
+            // 3. 현재 URL에 쿼리 문자열을 추가하고 새로고침
+            // 이는 Streamlit Python 코드가 st.experimental_get_query_params()를 사용하여 이 값을 읽을 수 있도록 합니다.
+            window.location.search = params;
         });
         
         // 초기 슬라이더 값 설정
         window.onload = function() {
             document.getElementById('daysValue').innerText = document.getElementById('workoutDays').value + '일';
+
+            // URL 쿼리 파라미터가 있는 경우, HTML 입력 필드를 해당 값으로 채웁니다.
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('w')) {
+                document.getElementById('weight').value = urlParams.get('w');
+                document.getElementById('height').value = urlParams.get('h');
+                document.getElementById('heartRate').value = urlParams.get('hr');
+                document.getElementById('targetWeight').value = urlParams.get('tw');
+                document.getElementById('targetDuration').value = urlParams.get('td');
+                document.getElementById('workoutDays').value = urlParams.get('wd');
+                document.getElementById('workoutTime').value = urlParams.get('wt');
+
+                // 슬라이더 값 표시 업데이트
+                document.getElementById('daysValue').innerText = urlParams.get('wd') + '일';
+                
+                // 성공 메시지 표시
+                const resultMessage = document.getElementById('resultMessage');
+                resultMessage.classList.remove('hidden');
+                resultMessage.classList.add('bg-green-100', 'text-green-800');
+                resultMessage.classList.remove('bg-yellow-100', 'text-yellow-800');
+                resultMessage.innerHTML = `✅ 데이터가 성공적으로 로드되었습니다. Streamlit 페이지 하단으로 스크롤하여 **'Streamlit으로 예측 실행'** 버튼을 클릭하세요.`;
+            }
         };
     </script>
 </body>
