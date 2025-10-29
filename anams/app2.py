@@ -22,9 +22,9 @@ HTML_FOLDER = 'htmls'
 HTML_FILE_PATH = os.path.join(HTML_FOLDER, HTML_FILE_NAME)
 
 MODEL_FILES = {
-    'RNN': '렬뉴.pkcls',
+    'RNN': 'neural.pkcls',
     'SVM': 'SVM.pkcls',
-    'kNN': 'kNN정보과제.pkcls'
+    'kNN': 'kNN.pkcls'
 }
 
 # --- 헬퍼 함수: HTML 내용 로드 ---

@@ -11,9 +11,9 @@ except ImportError:
 
 # 모델 파일 경로 (이 파일과 같은 디렉토리에 있어야 합니다)
 MODEL_FILES = {
-    'rnn': '렬뉴.pkcls',
+    'rnn': 'neural.pkcls',
     'svm': 'SVM.pkcls',
-    'knn': 'kNN정보과제.pkcls'
+    'knn': 'kNN.pkcls'
 }
 
 LOADED_MODELS = {}
