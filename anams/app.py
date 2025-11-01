@@ -72,16 +72,6 @@ file_keys = list(HTML_FILES.keys())
 # --- 1. 사이드바 네비게이션 ---
 st.sidebar.title("HTML 문서 목록")
 
-# --- 디버깅 정보 추가: 현재 작업 디렉토리 확인 ---
-current_dir = os.getcwd()
-html_absolute_path = os.path.join(current_dir, HTML_DIR)
-
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"**현재 작업 경로 (CWD):** `{current_dir}`")
-st.sidebar.markdown(f"**검색 경로:** `{html_absolute_path}`")
-st.sidebar.markdown("---")
-# --------------------------------------------------
-
 if file_keys:
     # 사용자가 선택할 수 있도록 동적으로 로드된 파일 목록 표시
     page_selection = st.sidebar.selectbox(
@@ -107,9 +97,6 @@ if file_keys:
             scrolling=True
         )
 else:
-    # 'htmls' 폴더를 찾을 수 없을 때 이미 get_html_files_dynamically에서 오류 메시지가 나왔으므로,
-    # 파일을 찾았는데 내용이 없을 때만 st.info를 표시하도록 변경할 수 있으나,
-    # 현재는 오류 핸들링이 함수 내에 있으므로 이 부분은 유지합니다.
     st.info("HTML 파일을 찾을 수 없습니다. 'htmls' 폴더를 확인하거나 파일을 추가해주세요.")
 
 
