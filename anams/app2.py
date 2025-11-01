@@ -18,7 +18,7 @@ except ImportError:
 
 # --- 파일 및 경로 설정 ---
 HTML_FILE_NAME = 'index6.html'
-HTML_FOLDER = 'htmls'
+HTML_FOLDER = 'htmls2'
 HTML_FILE_PATH = os.path.join(HTML_FOLDER, HTML_FILE_NAME)
 
 MODEL_FILES = {
@@ -268,3 +268,4 @@ def app():
 
 if __name__ == "__main__":
     app()
+
