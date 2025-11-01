@@ -21,6 +21,11 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
             border-left: 8px solid;
         }
+        /* Tailwind classes for priority colors (Red/Yellow/Green) */
+        .border-high { border-color: #ef4444; } /* Red-500 */
+        .border-medium { border-color: #f59e0b; } /* Amber-500 */
+        .border-low { border-color: #10b981; } /* Emerald-500 */
+
         .bg-gradient-high {
             background-image: linear-gradient(to right, #fef2f2, #fee2e2); /* Red tones for high priority */
         }
@@ -28,524 +33,99 @@
             background-image: linear-gradient(to right, #fffdf2, #fff7d0); /* Yellow tones for medium priority */
         }
         .bg-gradient-low {
-            background-image: linear-gradient(to right, #f0fdf4, #dcfce7); /* Green tones for low priority */
+            background-image: linear-gradient(to right, #ecfdf5, #d1fae5); /* Green tones for low priority */
         }
-        /* Color based on priority calculation (for border) */
-        .border-high { border-left-color: #ef4444; } /* Red */
-        .border-medium { border-left-color: #f59e0b; } /* Orange */
-        .border-low { border-left-color: #10b981; } /* Green */
     </style>
-    <!-- Firebase SDK 로드 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firestore 로깅 활성화 (디버깅용)
-        setLogLevel('Debug');
-
-        // 전역 변수 설정 (Canvas 환경에서 제공됨)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let isFirebaseConfigMissing = false;
-
-        if (Object.keys(firebaseConfig).length === 0) {
-            console.error("Firebase config is missing. Task persistence will not work.");
-            document.getElementById('task-list-container').innerHTML = '<p class="text-red-500 text-center p-4">Firebase 설정이 누락되었습니다. 작업을 저장할 수 없습니다.</p>';
-            // Firebase 설정이 없으면 나머지 로직을 실행하지 않음
-            document.getElementById('task-form').style.display = 'none';
-            isFirebaseConfigMissing = true;
-            // return; // <-- 이 return이 모듈 스코프에서 사용될 때 SyntaxError를 유발했습니다.
-        }
-
-        // Firebase 설정이 누락되지 않은 경우에만 앱을 초기화합니다.
-        let app, db, auth;
-        if (!isFirebaseConfigMissing) {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        }
-        
-        let userId = null;
-        let tasksCollectionRef = null;
-
-        // --- 1. 우선순위 계산 로직 (핵심) ---
-        
-        /**
-         * 중요도, 긴급도, 영향력, 노력 값과 가중치를 기반으로 최종 우선순위 점수를 계산합니다.
-         * @param {object} task - 업무의 평가 기준 (importance, urgency, impact, effort)
-         * @param {object} weights - 각 기준에 적용할 가중치
-         * @returns {number} 계산된 우선순위 점수
-         */
-        function calculatePriority(task, weights) {
-            const score = 
-                (task.importance * weights.importance) +
-                (task.urgency * weights.urgency) +
-                (task.impact * weights.impact) - 
-                (task.effort * weights.effort); // 노력은 감점 처리
-            
-            return score; 
-        }
-
-        // --- 2. Firestore 및 인증 설정 ---
-
-        // Firebase 설정이 있을 때만 인증 상태 변경 감지를 실행합니다.
-        if (!isFirebaseConfigMissing) {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    initializeAppServices();
-                } else if (initialAuthToken) {
-                    try {
-                        // Custom Token으로 로그인
-                        const userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                        userId = userCredential.user.uid;
-                        initializeAppServices();
-                    } catch (error) {
-                        console.error("Custom Token 로그인 실패:", error);
-                        showMessage("로그인 오류: 사용자 인증 토큰이 유효하지 않습니다. 익명 로그인 시도...", 'bg-orange-500');
-                        // 실패 시 익명 로그인 시도
-                        try {
-                            await signInAnonymously(auth);
-                        } catch (anonError) {
-                            console.error("익명 로그인 실패:", anonError);
-                            showMessage("치명적 오류: 인증에 완전히 실패하여 데이터를 저장할 수 없습니다.", 'bg-red-700');
-                        }
-                    }
-                } else {
-                    // 토큰이 없으면 익명 로그인
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (anonError) {
-                        console.error("익명 로그인 실패:", anonError);
-                        showMessage("치명적 오류: 익명 로그인에 실패하여 데이터를 저장할 수 없습니다.", 'bg-red-700');
-                    }
-                }
-            });
-        }
-        
-        function initializeAppServices() {
-             // userId가 없으면 즉시 종료
-             if (!userId) { 
-                return;
-             }
-             
-             // Private data path: /artifacts/{appId}/users/{userId}/tasks
-             const collectionPath = `artifacts/${appId}/users/${userId}/tasks`;
-             tasksCollectionRef = collection(db, collectionPath);
-             
-             document.getElementById('user-id-display').textContent = `사용자 ID: ${userId}`;
-             
-             // 데이터 실시간 감지 시작 및 초기 공식 표시
-             startRealtimeListener();
-             // 초기 공식 표시 (DOM이 로드된 후 실행)
-             setTimeout(updateFormulaDisplay, 100); 
-             
-             // 가중치 입력 필드 변경 시 공식 업데이트 리스너 추가
-             document.querySelectorAll('.weight-input').forEach(input => {
-                 input.addEventListener('input', updateFormulaDisplay);
-             });
-        }
-
-        // --- 3. CRUD 및 실시간 감지 함수 ---
-
-        // 새 작업 추가/업데이트
-        async function addTask(e) {
-            e.preventDefault();
-            // Firebase 설정 누락 및 Firestore 초기화 여부 확인
-            if (isFirebaseConfigMissing) {
-                showMessage("Firebase 설정이 없어 업무를 저장할 수 없습니다.", 'bg-red-500');
-                return;
-            }
-            if (!tasksCollectionRef) {
-                console.error("Firestore가 초기화되지 않았습니다. 사용자 인증을 확인하세요.");
-                showMessage("인증 문제로 업무를 저장할 수 없습니다. 잠시 후 다시 시도하세요.", 'bg-red-500');
-                return;
-            }
-
-            const taskName = document.getElementById('task-name').value.trim();
-            if (!taskName) {
-                showMessage("업무 이름을 입력해주세요.", 'bg-red-500');
-                return;
-            }
-
-            // 모든 평가 기준 값 가져오기 (5점 척도)
-            const importance = parseInt(document.getElementById('importance').value);
-            const urgency = parseInt(document.getElementById('urgency').value);
-            const impact = parseInt(document.getElementById('impact').value);
-            const effort = parseInt(document.getElementById('effort').value);
-            
-            // 현재 가중치 가져오기 (새로 추가)
-            const currentWeights = {
-                importance: parseInt(document.getElementById('importance-weight').value) || 0,
-                urgency: parseInt(document.getElementById('urgency-weight').value) || 0,
-                impact: parseInt(document.getElementById('impact-weight').value) || 0,
-                effort: parseInt(document.getElementById('effort-weight').value) || 0,
-            };
-
-            const newTask = {
-                name: taskName,
-                importance: importance,
-                urgency: urgency,
-                impact: impact,
-                effort: effort,
-                createdAt: Date.now(),
-                // 가중치를 문서에 저장하여, 나중에 수식을 변경하더라도 기존 문서의 점수는 유지될 수 있도록 함 (일관성 유지)
-                weights: currentWeights 
-            };
-
-            // 우선순위 점수 계산 및 저장 (가중치 전달)
-            newTask.priorityScore = calculatePriority(newTask, currentWeights);
-            
-            // 공식 표시 업데이트 (업무를 추가할 때 사용된 가중치 반영)
-            updateFormulaDisplay(currentWeights);
-
-            try {
-                // Firestore에 새 문서 추가
-                await setDoc(doc(tasksCollectionRef), newTask);
-                
-                // 입력 필드 초기화
-                document.getElementById('task-form').reset();
-                // 가중치 입력값은 유지되도록 리셋에서 제외 (선택적)
-                
-                showMessage("새 업무가 추가되었습니다.", 'bg-green-500');
-            } catch (error) {
-                console.error("업무 추가 오류:", error);
-                showMessage("업무 추가에 실패했습니다. (Firestore 권한 문제일 수 있습니다.)", 'bg-red-500');
-            }
-        }
-        
-        // Firebase 설정이 있을 때만 리스너를 추가합니다.
-        if (!isFirebaseConfigMissing) {
-            document.getElementById('task-form').addEventListener('submit', addTask);
-        } else {
-             // 폼 제출을 막아서 오류 방지
-             document.getElementById('task-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                showMessage("Firebase 설정이 없어 업무를 저장할 수 없습니다.", 'bg-red-500');
-             });
-        }
-
-        // 작업 삭제
-        window.deleteTask = async function(taskId) {
-            if (!tasksCollectionRef) return console.error("Firestore가 초기화되지 않았습니다.");
-            
-            // 커스텀 모달로 대체
-            showConfirmModal("이 업무를 정말 삭제하시겠습니까?", async () => {
-                try {
-                    await deleteDoc(doc(db, tasksCollectionRef.path, taskId));
-                    showMessage("업무가 삭제되었습니다.", 'bg-yellow-500');
-                } catch (error) {
-                    console.error("업무 삭제 오류:", error);
-                    showMessage("업무 삭제에 실패했습니다.", 'bg-red-500');
-                }
-            });
-        };
-
-        // 작업 완료 상태 토글 (예시로 추가)
-        window.toggleCompleted = async function(taskId, isCompleted) {
-            if (!tasksCollectionRef) return console.error("Firestore가 초기화되지 않았습니다.");
-            
-            try {
-                await updateDoc(doc(db, tasksCollectionRef.path, taskId), {
-                    completed: !isCompleted
-                });
-            } catch (error) {
-                console.error("업무 완료 상태 변경 오류:", error);
-                showMessage("상태 변경에 실패했습니다.", 'bg-red-500');
-            }
-        };
-
-
-        // --- 4. UI 렌더링 및 실시간 감지 ---
-        
-        function startRealtimeListener() {
-            if (!tasksCollectionRef) return;
-
-            // 쿼리 대신 클라이언트에서 정렬합니다. (Firestore orderBy 이슈 방지)
-            onSnapshot(tasksCollectionRef, (snapshot) => {
-                const tasks = [];
-                snapshot.forEach(doc => {
-                    const task = doc.data();
-                    task.id = doc.id;
-                    
-                    // 기존 데이터 또는 가중치가 없는 데이터의 경우 기본 가중치(3,3,2,1)로 재계산
-                    if (typeof task.priorityScore === 'undefined' || !task.weights) {
-                         const defaultWeights = { importance: 3, urgency: 3, impact: 2, effort: 1 };
-                         task.priorityScore = calculatePriority(task, defaultWeights);
-                    }
-                    // 현재 가중치 설정값을 반영하여 점수를 재계산하는 대신,
-                    // 문서에 저장된 priorityScore를 그대로 사용합니다. (일관성 유지)
-                    
-                    tasks.push(task);
-                });
-
-                // 1. 우선순위 점수가 높은 순서대로 정렬
-                tasks.sort((a, b) => b.priorityScore - a.priorityScore);
-                
-                // 2. 완료된 항목은 목록 맨 뒤로 보냅니다.
-                tasks.sort((a, b) => (a.completed === b.completed) ? 0 : a.completed ? 1 : -1);
-
-                renderTasks(tasks);
-            }, (error) => {
-                console.error("Firestore 실시간 감지 오류:", error);
-                showMessage("데이터 로드에 오류가 발생했습니다.", 'bg-red-500');
-            });
-        }
-
-        function getPriorityStyle(score) {
-            // 점수에 따라 스타일 결정 (예시 기준: 최고점 25점, 최저점 -5점 가정)
-            if (score >= 12) { // 높은 우선순위 (High)
-                return { class: 'border-high bg-gradient-high', label: '최우선 (A)' };
-            } else if (score >= 6) { // 중간 우선순위 (Medium)
-                return { class: 'border-medium bg-gradient-medium', label: '중요 (B)' };
-            } else { // 낮은 우선순위 (Low)
-                return { class: 'border-low bg-gradient-low', label: '일반/보류 (C)' };
-            }
-        }
-
-        function renderTasks(tasks) {
-            const container = document.getElementById('task-list-container');
-            container.innerHTML = '';
-
-            if (tasks.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center p-8">아직 등록된 업무가 없습니다. 새로운 업무를 추가해보세요! 🚀</p>';
-                return;
-            }
-
-            tasks.forEach(task => {
-                const style = getPriorityStyle(task.priorityScore);
-                const isCompleted = task.completed || false;
-                
-                // 해당 업무에 적용된 가중치를 표시합니다. (task.weights가 있다면)
-                const weights = task.weights || { importance: 3, urgency: 3, impact: 2, effort: 1 };
-                const formulaDisplay = `(중요도 x${weights.importance}) + (긴급도 x${weights.urgency}) + (영향력 x${weights.impact}) - (노력 x${weights.effort})`;
-
-                const taskCard = `
-                    <div class="task-card ${style.class} p-4 mb-4 rounded-xl flex items-center justify-between transition-all duration-300 ${isCompleted ? 'opacity-50 line-through' : ''}">
-                        <div class="flex-1 min-w-0 pr-4">
-                            <h3 class="text-lg font-semibold text-gray-800 break-words">${task.name}</h3>
-                            <div class="text-sm text-gray-600 mt-1 space-y-0.5">
-                                <p><strong>점수:</strong> <span class="priority-score ${style.class.includes('high') ? 'text-red-600' : style.class.includes('medium') ? 'text-orange-500' : 'text-green-600'}">${task.priorityScore}점</span> (${style.label})</p>
-                                <p>평가 기준: 중요도(${task.importance}), 긴급도(${task.urgency}), 영향력(${task.impact}), 노력(${task.effort})</p>
-                                <p class="text-xs text-gray-500">계산 공식: ${formulaDisplay}</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <!-- 완료 버튼 -->
-                            <button onclick="toggleCompleted('${task.id}', ${isCompleted})" 
-                                class="p-2 rounded-full transition-colors duration-200 
-                                ${isCompleted ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}"
-                                title="${isCompleted ? '완료 취소' : '완료'}"
-                            >
-                                <!-- Checkmark SVG Icon -->
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.052-.143Z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                            <!-- 삭제 버튼 -->
-                            <button onclick="deleteTask('${task.id}')" 
-                                class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200"
-                                title="삭제"
-                            >
-                                <!-- Trash Can SVG Icon -->
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.5H2.75a.75.75 0 0 0 0 1.5h1.163l1.82 11.23a2.75 2.75 0 0 0 2.748 2.262h6.434a2.75 2.75 0 0 0 2.748-2.262l1.82-11.23h1.163a.75.75 0 0 0 0-1.5H14v-.5A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4a.75.75 0 0 0-.75.75v7.5a.75.75 0 0 0 1.5 0v-7.5A.75.75 0 0 0 10 4Z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                `;
-                container.insertAdjacentHTML('beforeend', taskCard);
-            });
-        }
-        
-        // 공식 디스플레이 업데이트 유틸리티 (새로 추가)
-        function updateFormulaDisplay(weights = null) {
-            let currentWeights;
-            
-            // 인수로 가중치가 제공되면 사용 (주로 addTask에서)
-            if (weights) {
-                currentWeights = weights;
-            } 
-            // 아니면 DOM에서 현재 설정값 읽기 (주로 초기 로딩이나 input 변경 시)
-            else {
-                // DOM에서 값을 읽을 수 없을 경우 기본값 사용 (초기 로드 시 DOM 요소가 준비되지 않았을 경우를 대비)
-                const importanceInput = document.getElementById('importance-weight');
-                
-                currentWeights = {
-                    importance: importanceInput ? parseInt(importanceInput.value) : 3,
-                    urgency: importanceInput ? parseInt(document.getElementById('urgency-weight').value) : 3,
-                    impact: importanceInput ? parseInt(document.getElementById('impact-weight').value) : 2,
-                    effort: importanceInput ? parseInt(document.getElementById('effort-weight').value) : 1,
-                };
-            }
-            
-            const formulaElement = document.getElementById('formula-display');
-            if (formulaElement) {
-                formulaElement.innerHTML = `
-                    *우선순위 점수 = (중요도 x${currentWeights.importance}) + (긴급도 x${currentWeights.urgency}) + (영향력 x${currentWeights.impact}) - (노력 x${currentWeights.effort})
-                `;
-                // 접근성 개선을 위해 공식 업데이트 시 알림
-                formulaElement.setAttribute('aria-live', 'polite');
-            }
-        }
-
-
-        // --- 5. 유틸리티 (메시지 및 모달) ---
-
-        // 사용자 메시지 표시
-        function showMessage(message, className) {
-            const messageBox = document.getElementById('message-box');
-            messageBox.textContent = message;
-            messageBox.className = `p-3 rounded-xl text-white text-center mb-4 ${className} transition-opacity duration-300`;
-            messageBox.style.opacity = '1';
-
-            setTimeout(() => {
-                messageBox.style.opacity = '0';
-            }, 3000);
-        }
-
-        // 커스텀 확인 모달
-        let resolveConfirm;
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmText = document.getElementById('confirm-text');
-        const confirmYes = document.getElementById('confirm-yes');
-        const confirmNo = document.getElementById('confirm-no');
-
-        function showConfirmModal(text, onConfirm) {
-            confirmText.textContent = text;
-            confirmModal.classList.remove('hidden');
-            
-            confirmYes.onclick = () => {
-                confirmModal.classList.add('hidden');
-                onConfirm();
-            };
-            
-            confirmNo.onclick = () => {
-                confirmModal.classList.add('hidden');
-            };
-        }
-
-
-    </script>
 </head>
 <body class="p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8">
-        <h1 class="text-3xl font-extrabold text-gray-900 mb-2 border-b-4 border-indigo-500 pb-2">
-            ✅ 업무 우선순위 정리기
-        </h1>
-        <p class="text-gray-600 mb-6">
-            평가 기준에 따라 점수를 매기고, 객관적인 우선순위에 따라 업무를 정리하세요.
-        </p>
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-900 leading-tight">🔥 ICE 업무 우선순위 정리기</h1>
+            <p class="text-gray-600 mt-2">업무를 추가하고 중요도, 긴급도, 영향력, 노력(ICE/RICE 모델 변형)을 평가하여 자동으로 우선순위를 정렬합니다. (데이터는 브라우저에 저장됩니다)</p>
+        </header>
         
-        <div id="user-id-display" class="text-xs text-gray-400 mb-4"></div>
-
-        <!-- 메시지 박스 -->
-        <div id="message-box" class="p-3 rounded-xl text-white text-center mb-4 opacity-0 transition-opacity duration-300"></div>
-
-        <!-- 1. 새 업무 추가 폼 -->
-        <section class="mb-8 p-6 bg-indigo-50 rounded-xl shadow-inner">
-            <h2 class="text-xl font-bold text-indigo-700 mb-4">새 업무 추가 및 평가</h2>
-            <form id="task-form" class="space-y-4">
-                <!-- 업무 이름 -->
+        <!-- 0. 가중치 설정 폼 (새로운 섹션) -->
+        <section class="mb-10 p-6 bg-white rounded-xl shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">⚙️ 우선순위 가중치 설정</h2>
+            <div id="weight-config" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- 중요도 가중치 -->
                 <div>
-                    <label for="task-name" class="block text-sm font-medium text-gray-700 mb-1">업무 이름</label>
-                    <input type="text" id="task-name" required placeholder="예: 2분기 핵심 프로젝트 최종 보고서 제출"
-                        class="w-full p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <label for="weight-importance" class="block text-sm font-medium text-gray-700">중요도(I) 가중치</label>
+                    <input type="number" id="weight-importance" min="0" value="3" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border text-center focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
-
-                <!-- 평가 기준 섹션 -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    
-                    <!-- 중요도 (Importance) - 확장됨 -->
-                    <div>
-                        <label for="importance" class="block text-sm font-medium text-gray-700 mb-1">1. 중요도 (목표 기여도 및 리스크)</label>
-                        <select id="importance" required class="w-full p-3 border border-indigo-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="5">5 - 전략적 핵심: 조직의 최우선 목표/KPI에 직결</option>
-                            <option value="4">4 - 주요 성과: 장기적인 성장/지속적 개선에 필수적</option>
-                            <option value="3" selected>3 - 운영 필수: 팀/부서의 일상적인 핵심 프로세스 유지</option>
-                            <option value="2">2 - 보조적 가치: 개인 역량 향상이나 부수적 개선에 기여</option>
-                            <option value="1">1 - 최소 가치: 가치 창출 기여가 미미하거나 보류 가능</option>
-                        </select>
-                    </div>
-
-                    <!-- 긴급도 (Urgency) - 확장됨 -->
-                    <div>
-                        <label for="urgency" class="block text-sm font-medium text-gray-700 mb-1">2. 긴급도 (마감 기한 및 지연 영향)</label>
-                        <select id="urgency" required class="w-full p-3 border border-indigo-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="5">5 - 즉시 대응: 법적/계약 마감 또는 시스템 위기로 즉시 조치 필요</option>
-                            <option value="4">4 - 촉박한 기한: 24시간~48시간 내 마감, 지연 시 즉각적인 손실 발생</option>
-                            <option value="3" selected>3 - 일정 병목: 이 업무가 후속 작업/주요 의사결정의 선행 조건</option>
-                            <option value="2">2 - 계획된 일정: 1주일~1개월 이내 마감이지만, 유연하게 조정 가능</option>
-                            <option value="1">1 - 여유로움: 장기적 과제, 기한이 없거나 1개월 이상 남음</option>
-                        </select>
-                    </div>
-                    
-                    <!-- 영향력 (Scope of Impact) - 확장됨 -->
-                    <div>
-                        <label for="impact" class="block text-sm font-medium text-gray-700 mb-1">3. 영향력 (파급 범위 및 창출 가치)</label>
-                        <select id="impact" required class="w-full p-3 border border-indigo-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-ring-indigo-500">
-                            <option value="5">5 - 전사적 파급: 고객, 핵심 파트너, 조직 전체의 수익/평판에 막대한 영향</option>
-                            <option value="4">4 - 주요 부서/팀 영향: 여러 부서나 핵심 팀의 워크플로우에 큰 개선을 줌</option>
-                            <option value="3" selected>3 - 개인/소규모 팀 영향: 주로 개인의 성과나 소규모 팀 운영에 직접적인 영향을 미침</option>
-                            <option value="2">2 - 간접적 영향: 결과가 한정적 그룹이나 부수적인 프로세스에만 미치는 경우</option>
-                            <option value="1">1 - 지역적/내부적 영향: 영향력이 거의 없는 단순 내부 서류 작업</option>
-                        </select>
-                    </div>
-
-                    <!-- 노력/소요 시간 (Effort) - 확장됨 (점수가 높을수록 감점) -->
-                    <div>
-                        <label for="effort" class="block text-sm font-medium text-gray-700 mb-1">4. 노력/소요 시간 (복잡성 및 예상 시간)</label>
-                        <select id="effort" required class="w-full p-3 border border-indigo-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="5">5 - 매우 높음: 고도의 복잡성 및 1주일 이상 또는 40시간 초과 소요</option>
-                            <option value="4">4 - 높음: 상당한 집중 필요 및 3~5일 또는 16~40시간 소요</option>
-                            <option value="3" selected>3 - 보통: 표준적인 집중 필요 및 반나절~2일 또는 4~16시간 소요</option>
-                            <option value="2">2 - 낮음: 가벼운 집중 필요 및 1시간~4시간 소요</option>
-                            <option value="1">1 - 매우 낮음: 단순하고 반복적이며 1시간 미만 소요</option>
-                        </select>
-                    </div>
+                <!-- 긴급도 가중치 -->
+                <div>
+                    <label for="weight-urgency" class="block text-sm font-medium text-gray-700">긴급도(C) 가중치</label>
+                    <input type="number" id="weight-urgency" min="0" value="3" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border text-center focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
-                
-                <!-- 새로운 가중치 설정 섹션 -->
-                <div class="mt-6 pt-4 border-t border-indigo-200">
-                    <h3 class="text-lg font-bold text-indigo-700 mb-3">5. 우선순위 가중치 설정 (W)</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <label for="importance-weight" class="block text-sm font-medium text-gray-700 mb-1">중요도 가중치 (기본: 3)</label>
-                            <input type="number" id="importance-weight" value="3" min="0" max="10"
-                                class="weight-input w-full p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center">
-                        </div>
-                        <div>
-                            <label for="urgency-weight" class="block text-sm font-medium text-gray-700 mb-1">긴급도 가중치 (기본: 3)</label>
-                            <input type="number" id="urgency-weight" value="3" min="0" max="10"
-                                class="weight-input w-full p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center">
-                        </div>
-                        <div>
-                            <label for="impact-weight" class="block text-sm font-medium text-gray-700 mb-1">영향력 가중치 (기본: 2)</label>
-                            <input type="number" id="impact-weight" value="2" min="0" max="10"
-                                class="weight-input w-full p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center">
-                        </div>
-                        <div>
-                            <label for="effort-weight" class="block text-sm font-medium text-gray-700 mb-1">노력 (감점) 가중치 (기본: 1)</label>
-                            <input type="number" id="effort-weight" value="1" min="0" max="10"
-                                class="weight-input w-full p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center">
-                        </div>
-                    </div>
+                <!-- 영향력 가중치 -->
+                <div>
+                    <label for="weight-impact" class="block text-sm font-medium text-gray-700">영향력(E) 가중치</label>
+                    <input type="number" id="weight-impact" min="0" value="2" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border text-center focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
-
-                <button type="submit"
-                    class="w-full py-3 mt-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md">
-                    업무 추가하고 우선순위 계산하기
-                </button>
-            </form>
-            <p id="formula-display" class="text-xs text-gray-500 mt-3" aria-live="polite">
+                <!-- 노력 가중치 -->
+                <div>
+                    <label for="weight-effort" class="block text-sm font-medium text-gray-700">노력(R) 가중치 (감점)</label>
+                    <input type="number" id="weight-effort" min="0" value="1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 border text-center focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+            </div>
+            <p id="formula-display" class="text-xs text-gray-500 mt-3 font-semibold" aria-live="polite">
                 <!-- Formula will be dynamically updated here -->
                 *우선순위 점수 = (중요도 x3) + (긴급도 x3) + (영향력 x2) - (노력 x1)
             </p>
+        </section>
+
+        <!-- 1. 업무 입력 폼 -->
+        <section class="mb-10 p-6 bg-white rounded-xl shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">✍️ 새로운 업무 추가</h2>
+            <form id="task-form" class="space-y-4">
+                <!-- 업무 이름 -->
+                <div>
+                    <label for="task-name" class="block text-sm font-medium text-gray-700">업무 내용</label>
+                    <input type="text" id="task-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="예: 2024년 4분기 보고서 작성">
+                </div>
+
+                <!-- 평가 슬라이더 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- 중요도 -->
+                    <div>
+                        <label for="importance" class="block text-sm font-medium text-gray-700">중요도 (Importance: I) [1-5]</label>
+                        <p class="text-xs text-gray-500 mt-0.5">업무가 핵심 목표 달성 및 가치 창출에 기여하는 정도. (1: 낮음 ~ 5: 높음)</p>
+                        <input type="range" id="importance" min="1" max="5" value="3" class="mt-1 w-full" oninput="updateSliderDisplay('importance', this.value)">
+                        <output id="importance-value" class="block text-center font-bold text-indigo-600">3</output>
+                        <p id="importance-desc" class="text-center text-sm text-gray-800 font-medium mt-1"></p>
+                    </div>
+                    <!-- 긴급도 -->
+                    <div>
+                        <label for="urgency" class="block text-sm font-medium text-gray-700">긴급도 (Criticality: C) [1-5]</label>
+                        <p class="text-xs text-gray-500 mt-0.5">업무를 얼마나 빨리 완료해야 하는지의 압박감. (1: 낮음 ~ 5: 높음)</p>
+                        <input type="range" id="urgency" min="1" max="5" value="3" class="mt-1 w-full" oninput="updateSliderDisplay('urgency', this.value)">
+                        <output id="urgency-value" class="block text-center font-bold text-indigo-600">3</output>
+                        <p id="urgency-desc" class="text-center text-sm text-gray-800 font-medium mt-1"></p>
+                    </div>
+                    <!-- 영향력 -->
+                    <div>
+                        <label for="impact" class="block text-sm font-medium text-gray-700">영향력 (Impact: E) [1-5]</label>
+                        <p class="text-xs text-gray-500 mt-0.5">업무가 완료되었을 때 얻게 되는 예상 이점이나 긍정적 효과. (1: 낮음 ~ 5: 높음)</p>
+                        <input type="range" id="impact" min="1" max="5" value="3" class="mt-1 w-full" oninput="updateSliderDisplay('impact', this.value)">
+                        <output id="impact-value" class="block text-center font-bold text-indigo-600">3</output>
+                        <p id="impact-desc" class="text-center text-sm text-gray-800 font-medium mt-1"></p>
+                    </div>
+                    <!-- 노력 -->
+                    <div>
+                        <label for="effort" class="block text-sm font-medium text-gray-700">노력 (Effort: -R) [1-5]</label>
+                        <p class="text-xs text-gray-500 mt-0.5">업무를 완료하는 데 필요한 시간, 리소스 또는 복잡성. (1: 낮음 ~ 5: 높음)</p>
+                        <input type="range" id="effort" min="1" max="5" value="3" class="mt-1 w-full" oninput="updateSliderDisplay('effort', this.value)">
+                        <output id="effort-value" class="block text-center font-bold text-indigo-600">3</output>
+                        <p id="effort-desc" class="text-center text-sm text-gray-800 font-medium mt-1"></p>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg">
+                    ✅ 업무 추가 및 우선순위 계산
+                </button>
+            </form>
         </section>
 
         <!-- 2. 우선순위 목록 (실시간 반영) -->
@@ -553,7 +133,7 @@
             <h2 class="text-2xl font-bold text-gray-900 mb-4">📋 현재 업무 목록 (우선순위 정렬)</h2>
             <div id="task-list-container" class="space-y-4">
                 <!-- Tasks will be rendered here dynamically -->
-                <p class="text-gray-500 text-center p-8">로딩 중...</p>
+                <p id="loading-message" class="text-gray-500 text-center p-8">로딩 중...</p>
             </div>
         </section>
         
@@ -562,12 +142,400 @@
             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
                 <p id="confirm-text" class="text-lg font-semibold mb-6 text-gray-800">정말 삭제하시겠습니까?</p>
                 <div class="flex justify-end space-x-3">
-                    <button id="confirm-no" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">취소</button>
-                    <button id="confirm-yes" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">확인</button>
+                    <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition">취소</button>
+                    <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition">삭제</button>
                 </div>
             </div>
         </div>
-
     </div>
+
+    <script>
+        // 상수 및 전역 변수
+        const LOCAL_STORAGE_KEY = 'priority_tasks';
+        const WEIGHTS_STORAGE_KEY = 'priority_weights';
+        const taskForm = document.getElementById('task-form');
+        const taskListContainer = document.getElementById('task-list-container');
+        const loadingMessage = document.getElementById('loading-message');
+        const confirmModal = document.getElementById('confirm-modal');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        let currentTasks = [];
+        let taskToDeleteId = null;
+        // 초기 가중치 설정 (사용자 정의 가능)
+        let currentWeights = { importance: 3, urgency: 3, impact: 2, effort: 1 };
+
+        /**
+         * 중요도(Importance: I)에 대한 상세 설명을 반환합니다. (전략적 가치 및 목표 기여)
+         * @param {string} value - 현재 슬라이더 값 (1-5)
+         * @returns {string} 상세 설명
+         */
+        function getImportanceDescription(value) {
+            switch (value) {
+                case '1': return '매우 낮음 (참고용): 장기적인 전략 가치가 없으며, 단순히 정보 제공이나 개인 만족에 그칩니다.';
+                case '2': return '낮음 (개선): 기존 프로세스의 미미한 개선에 기여하며, 필수적이지 않은 부수적인 가치만 제공합니다.';
+                case '3': return '보통 (정상 운영): 일상적인 운영에 필요하며, 부재 시 업무 효율이 저하되지만 치명적이지는 않습니다.';
+                case '4': return '높음 (전략적 중요): 주요 프로젝트 성공에 필수적이며, 경쟁 우위를 확보하는 데 크게 기여합니다.';
+                case '5': return '매우 높음 (핵심 비즈니스): 회사의 생존이나 핵심 목표(매출, 법규 준수 등)에 직접적이고 결정적인 영향을 미칩니다.';
+                default: return '';
+            }
+        }
+
+        /**
+         * 긴급도(Criticality: C)에 대한 상세 설명을 반환합니다. (마감 기한 및 지연 위험)
+         * @param {string} value - 현재 슬라이더 값 (1-5)
+         * @returns {string} 상세 설명
+         */
+        function getUrgencyDescription(value) {
+            switch (value) {
+                case '1': return '매우 낮음 (자율): 마감 기한이 정해져 있지 않거나, 다른 업무가 끝난 후 언제든 시작할 수 있습니다.';
+                case '2': return '낮음 (여유): 한 달 이상의 기한이 남았거나 내부적인 기한일 뿐, 여유롭게 계획을 세울 수 있습니다.';
+                case '3': return '보통 (조정 가능): 다음 주 정도의 마감 기한이 있으며, 팀 간의 협의를 통해 조정 여지가 약간 있습니다.';
+                case '4': return '높음 (긴급/고객): 금주 내 마감이며, 지연 시 고객에게 직접적인 피해나 큰 불만/이탈이 예상됩니다.';
+                case '5': return '매우 높음 (즉시/위험): 즉시 해결해야 하며, 오늘을 넘기면 서비스 장애, 계약 파기 등 막대한 손실이 발생합니다.';
+                default: return '';
+            }
+        }
+
+        /**
+         * 영향력(Impact: E)에 대한 상세 설명을 반환합니다. (결과적인 이득/효과 범위)
+         * @param {string} value - 현재 슬라이더 값 (1-5)
+         * @returns {string} 상세 설명
+         */
+        function getImpactDescription(value) {
+            switch (value) {
+                case '1': return '매우 낮음 (개인 이익): 업무 담당자 본인에게만 유용하며, 외부 또는 다른 팀에 미치는 영향이 거의 없습니다.';
+                case '2': return '낮음 (소수 이익): 1~2개 팀의 사소한 불편함을 해소하거나, 제한된 사용자에게만 영향을 미칩니다.';
+                case '3': return '보통 (중간 이익): 특정 팀 또는 기능 영역의 업무 효율을 개선하며, 이점이 명확하게 측정 가능합니다.';
+                case '4': return '높음 (주요 이익): 수백~수천 명의 고객에게 명확한 이점을 제공하거나, 주요 부서의 업무 효율을 획기적으로 개선합니다.';
+                case '5': return '매우 높음 (최대 이익): 수만 명 이상의 고객에게 혜택을 제공하거나, 수억 원 이상의 비용 절감/매출 증대를 가져옵니다.';
+                default: return '';
+            }
+        }
+
+        /**
+         * 노력(Effort: -R)에 대한 상세 설명을 반환합니다. (소요되는 리소스/시간)
+         * @param {string} value - 현재 슬라이더 값 (1-5)
+         * @returns {string} 상세 설명 (시간 기반)
+         */
+        function getEffortDescription(value) {
+            switch (value) {
+                case '1': return '매우 낮음 (즉시 처리): 1시간 이내 완료 가능한 단순하고 즉각적인 작업입니다. (예: 오타 수정)';
+                case '2': return '낮음 (단기 작업): 1~8시간 내에 완료 가능하며, 간단한 준비나 확인만 있으면 됩니다.';
+                case '3': return '보통 (중기 작업): 한 명이 1~3일 안에 완료할 수 있는 작업으로, 명확한 계획이 필요합니다. (8~24시간)';
+                case '4': return '높음 (장기 작업): 한 명 또는 두 명이 3일~2주 동안 집중해야 하는 작업으로, 중간 복잡도를 가집니다. (24~100시간)';
+                case '5': return '매우 높음 (대규모 프로젝트): 여러 팀(3인 이상)이 2주 이상 전념해야 하는 복잡하고 광범위한 작업입니다.';
+                default: return '';
+            }
+        }
+
+        // --- 가중치 관리 함수 ---
+
+        /**
+         * localStorage에서 가중치를 로드합니다.
+         * @returns {Object} 로드된 가중치 객체
+         */
+        function loadWeights() {
+            try {
+                const weightsJson = localStorage.getItem(WEIGHTS_STORAGE_KEY);
+                // JSON.parse 실패 또는 데이터가 없는 경우 기본값 반환
+                return weightsJson ? JSON.parse(weightsJson) : { importance: 3, urgency: 3, impact: 2, effort: 1 };
+            } catch (e) {
+                console.error("가중치 로드 실패:", e);
+                return { importance: 3, urgency: 3, impact: 2, effort: 1 };
+            }
+        }
+
+        /**
+         * 가중치를 localStorage에 저장합니다.
+         * @param {Object} weights - 저장할 가중치 객체
+         */
+        function saveWeights(weights) {
+            try {
+                localStorage.setItem(WEIGHTS_STORAGE_KEY, JSON.stringify(weights));
+            } catch (e) {
+                console.error("가중치 저장 실패:", e);
+            }
+        }
+
+        /**
+         * 가중치 입력 필드의 값을 currentWeights와 동기화합니다.
+         */
+        function syncWeightInputs() {
+            document.getElementById('weight-importance').value = currentWeights.importance;
+            document.getElementById('weight-urgency').value = currentWeights.urgency;
+            document.getElementById('weight-impact').value = currentWeights.impact;
+            document.getElementById('weight-effort').value = currentWeights.effort;
+        }
+
+        /**
+         * 가중치 입력 변경 시 이벤트 리스너를 설정합니다.
+         */
+        function setupWeightListeners() {
+            const ids = ['importance', 'urgency', 'impact', 'effort'];
+            ids.forEach(id => {
+                const input = document.getElementById(`weight-${id}`);
+                // input 이벤트: 값이 변경될 때마다 발생
+                input.addEventListener('input', (e) => {
+                    // 입력 값이 유효한 숫자인지 확인, 아니면 0으로 처리
+                    const newValue = parseInt(e.target.value) || 0;
+                    currentWeights[id] = newValue;
+                    saveWeights(currentWeights);
+                    updateFormulaDisplay();
+                    // 가중치가 바뀌면 모든 업무의 점수를 재계산하여 정렬
+                    renderTasks(); 
+                });
+            });
+        }
+
+        /**
+         * 우선순위 점수 계산 공식을 UI에 업데이트합니다.
+         */
+        function updateFormulaDisplay() {
+            const formulaDisplay = document.getElementById('formula-display');
+            const i = currentWeights.importance;
+            const c = currentWeights.urgency;
+            const e = currentWeights.impact;
+            const r = currentWeights.effort;
+            formulaDisplay.innerHTML = `
+                *우선순위 점수 = (중요도 x${i}) + (긴급도 x${c}) + (영향력 x${e}) - (노력 x${r})
+            `;
+        }
+
+
+        // --- 업무 처리 함수 ---
+
+        /**
+         * 슬라이더 값 변경 시 숫자 및 설명 텍스트를 업데이트합니다.
+         * @param {string} id - 슬라이더의 기본 ID (importance, urgency 등)
+         * @param {string} value - 현재 슬라이더 값 (1-5)
+         */
+        function updateSliderDisplay(id, value) {
+            const valueElement = document.getElementById(`${id}-value`);
+            const descElement = document.getElementById(`${id}-desc`);
+            
+            if (valueElement) {
+                valueElement.textContent = value;
+            }
+            if (descElement) {
+                // 항목별로 다른 설명 함수를 호출
+                switch (id) {
+                    case 'importance':
+                        descElement.textContent = getImportanceDescription(value);
+                        break;
+                    case 'urgency':
+                        descElement.textContent = getUrgencyDescription(value);
+                        break;
+                    case 'impact':
+                        descElement.textContent = getImpactDescription(value);
+                        break;
+                    case 'effort':
+                        descElement.textContent = getEffortDescription(value);
+                        break;
+                    default:
+                        descElement.textContent = '';
+                }
+            }
+        }
+
+        /**
+         * 업무의 우선순위 점수를 계산합니다.
+         * 공식: Score = (I * W_I) + (C * W_C) + (E * W_E) - (R * W_R)
+         * @param {Object} task - 업무 객체
+         * @returns {number} 계산된 우선순위 점수
+         */
+        function calculatePriority(task) {
+            const weights = currentWeights; 
+            const importance = parseInt(task.importance);
+            const urgency = parseInt(task.urgency);
+            const impact = parseInt(task.impact);
+            const effort = parseInt(task.effort);
+            
+            // I * W_I + C * W_C + E * W_E - R * W_R
+            // 노력(Effort)은 점수를 깎는 요소이므로 뺍니다.
+            return (importance * weights.importance) + 
+                   (urgency * weights.urgency) + 
+                   (impact * weights.impact) - 
+                   (effort * weights.effort);
+        }
+
+        /**
+         * localStorage에서 업무 목록을 로드합니다.
+         * @returns {Array<Object>} 로드된 업무 목록
+         */
+        function loadTasks() {
+            try {
+                const tasksJson = localStorage.getItem(LOCAL_STORAGE_KEY);
+                return tasksJson ? JSON.parse(tasksJson) : [];
+            } catch (e) {
+                console.error("localStorage 로드 실패:", e);
+                return [];
+            }
+        }
+
+        /**
+         * 업무 목록을 localStorage에 저장합니다.
+         * @param {Array<Object>} tasks - 저장할 업무 목록
+         */
+        function saveTasks(tasks) {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
+            } catch (e) {
+                console.error("localStorage 저장 실패:", e);
+            }
+        }
+
+        /**
+         * 업무 목록을 우선순위 점수 기준으로 내림차순 정렬하고 렌더링합니다.
+         */
+        function renderTasks() {
+            // 1. 점수 계산 및 정렬
+            currentTasks.forEach(task => {
+                task.priorityScore = calculatePriority(task);
+            });
+            currentTasks.sort((a, b) => b.priorityScore - a.priorityScore);
+
+            // 2. DOM 업데이트
+            taskListContainer.innerHTML = '';
+            loadingMessage.classList.add('hidden');
+
+            if (currentTasks.length === 0) {
+                taskListContainer.innerHTML = '<p class="text-gray-500 text-center p-8 bg-white rounded-xl">✨ 아직 업무가 없습니다. 새로운 업무를 추가해보세요!</p>';
+                return;
+            }
+
+            currentTasks.forEach(task => {
+                // 점수 범위에 따라 색상 클래스 지정 (범위는 기본 가중치(3, 3, 2, 1) 기준 최대 24, 최소 4점을 고려하여 대략적으로 설정. 가중치 변경 시 기준은 달라질 수 있으나 UI 목적상 고정)
+                const priorityClass = task.priorityScore >= 18 ? 'border-high bg-gradient-high' :
+                                      task.priorityScore >= 10 ? 'border-medium bg-gradient-medium' :
+                                      'border-low bg-gradient-low';
+                
+                const taskCard = document.createElement('div');
+                taskCard.className = `task-card flex items-center justify-between p-4 rounded-xl ${priorityClass}`;
+                taskCard.dataset.id = task.id;
+
+                taskCard.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="text-lg font-semibold text-gray-900 truncate">${task.name}</p>
+                        <div class="mt-1 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+                            <span>중요도: ${task.importance} (${getImportanceDescription(task.importance)})</span>
+                            <span>긴급도: ${task.urgency} (${getUrgencyDescription(task.urgency)})</span>
+                            <span>영향력: ${task.impact} (${getImpactDescription(task.impact)})</span>
+                            <span>노력: ${task.effort} (${getEffortDescription(task.effort)})</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 ml-4">
+                        <span class="priority-score text-gray-800">${task.priorityScore}</span>
+                        <button class="delete-btn text-gray-500 hover:text-red-600 transition p-2 rounded-full hover:bg-white" aria-label="업무 삭제">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                taskListContainer.appendChild(taskCard);
+            });
+
+            // 3. 삭제 버튼 이벤트 리스너 추가
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const taskId = e.currentTarget.closest('.task-card').dataset.id;
+                    showDeleteConfirmModal(taskId);
+                });
+            });
+        }
+
+        /**
+         * 업무 삭제 확인 모달을 표시합니다.
+         * @param {string} taskId - 삭제할 업무의 ID
+         */
+        function showDeleteConfirmModal(taskId) {
+            taskToDeleteId = taskId;
+            document.getElementById('confirm-text').textContent = '선택하신 업무를 정말 삭제하시겠습니까?';
+            confirmModal.classList.remove('hidden');
+        }
+
+        /**
+         * 실제로 업무를 삭제하고 렌더링을 업데이트합니다.
+         */
+        function deleteTask() {
+            if (!taskToDeleteId) return;
+
+            // 로컬 데이터에서 업무 삭제
+            currentTasks = currentTasks.filter(task => task.id !== taskToDeleteId);
+            
+            // localStorage에 저장 및 UI 업데이트
+            saveTasks(currentTasks);
+            renderTasks();
+
+            taskToDeleteId = null;
+            confirmModal.classList.add('hidden');
+        }
+
+        // --- 이벤트 리스너 설정 ---
+
+        // 1. 업무 추가 폼 제출 처리
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const taskName = document.getElementById('task-name').value.trim();
+            if (!taskName) return;
+
+            const importanceValue = document.getElementById('importance').value;
+            const urgencyValue = document.getElementById('urgency').value;
+            const impactValue = document.getElementById('impact').value;
+            const effortValue = document.getElementById('effort').value;
+
+            const newTask = {
+                id: crypto.randomUUID(), 
+                name: taskName,
+                importance: importanceValue,
+                urgency: urgencyValue,
+                impact: impactValue,
+                effort: effortValue,
+            };
+
+            // 로컬 데이터에 새 업무 추가
+            currentTasks.push(newTask);
+            
+            // localStorage에 저장 및 UI 업데이트
+            saveTasks(currentTasks);
+            renderTasks();
+
+            // 폼 초기화 및 디스플레이 초기값 설정 (3)
+            taskForm.reset();
+            updateSliderDisplay('importance', '3');
+            updateSliderDisplay('urgency', '3');
+            updateSliderDisplay('impact', '3');
+            updateSliderDisplay('effort', '3');
+        });
+
+        // 2. 모달 버튼 이벤트
+        modalConfirmBtn.addEventListener('click', deleteTask);
+        modalCancelBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+            taskToDeleteId = null;
+        });
+        
+        // 3. 페이지 로드 시 초기 데이터 로드 및 렌더링
+        window.onload = function() {
+            // 1. 가중치 로드 및 설정
+            currentWeights = loadWeights();
+            syncWeightInputs();
+            updateFormulaDisplay();
+            setupWeightListeners(); 
+            
+            // 2. 업무 로드 및 렌더링
+            currentTasks = loadTasks();
+            renderTasks();
+            
+            // 3. 초기 로드 시 슬라이더 디스플레이 초기화 (업무 입력 섹션)
+            // 기본값 3으로 설정되어 있으므로, 초기 설명을 표시하도록 호출
+            updateSliderDisplay('importance', document.getElementById('importance').value);
+            updateSliderDisplay('urgency', document.getElementById('urgency').value);
+            updateSliderDisplay('impact', document.getElementById('impact').value);
+            updateSliderDisplay('effort', document.getElementById('effort').value);
+        };
+
+    </script>
 </body>
 </html>
