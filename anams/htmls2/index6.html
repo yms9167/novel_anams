@@ -7,7 +7,9 @@
     <!-- Tailwind CSS CDN 로드 -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 비선형 그래프 관련 라이브러리(Chart.js)는 모두 삭제됨 -->
+    <!-- Vis.js CDN for Network Graph Visualization (DAG 시각화 라이브러리) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
     
     <style>
         /* Custom styles for better aesthetics and readability */
@@ -34,6 +36,15 @@
         .bg-gradient-medium { background-image: linear-gradient(to right, #fffdf2, #fff7d0); }
         .bg-gradient-low { background-image: linear-gradient(to right, #ecfdf5, #d1fae5); }
         .bg-gradient-completed { background-image: linear-gradient(to right, #f3f4f6, #e5e7eb); }
+
+        /* Vis.js network container style */
+        #dag-network {
+            height: 400px;
+            width: 100%;
+            border: 1px solid #e5e7eb;
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl equivalent */
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -132,12 +143,21 @@
         </section>
 
         <!-- 2. 우선순위 목록 (이전 3번 섹션) -->
-        <section>
+        <section class="mb-10">
             <h2 class="text-2xl font-bold text-gray-900 mb-4">📋 현재 업무 목록 (DAG & 우선순위 순서)</h2>
             <div id="task-list-container" class="space-y-4">
                 <!-- Tasks will be rendered here dynamically -->
                 <p id="loading-message" class="text-gray-500 text-center p-8">로딩 중...</p>
             </div>
+        </section>
+        
+        <!-- 3. DAG 시각화 영역 -->
+        <section class="mt-10 p-6 bg-white rounded-xl shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">🔗 업무 종속성 DAG 시각화</h2>
+            <div id="dag-network">
+                <!-- Graph will be drawn here -->
+            </div>
+            <p class="text-xs text-gray-500 mt-2">DAG (Directed Acyclic Graph): 위에서 아래로 업무 흐름을 나타냅니다. 노드를 클릭하면 상세 정보를 확인할 수 있습니다. 그래프가 겹치면 드래그하여 이동할 수 있습니다.</p>
         </section>
         
         <!-- 커스텀 모달 (Confirm 대신 사용) -->
@@ -188,7 +208,7 @@
         
         function showInfoModal(title, message) {
             document.getElementById('info-title').textContent = title;
-            document.getElementById('info-message').textContent = message;
+            document.getElementById('info-message').innerHTML = message; // Use innerHTML for formatted text
             infoModal.classList.remove('hidden');
         }
 
@@ -197,7 +217,7 @@
         });
         
         /**
-         * 1-10 점수에 따른 상세 설명을 반환합니다.
+         * 1-10 점수에 따른 상세 설명을 반환합니다. (이전과 동일)
          * @param {string} type - 평가 기준 ('importance', 'urgency', 'impact', 'effort')
          * @param {number} score - 점수 (1-10)
          * @returns {string} 상세 설명 텍스트
@@ -380,8 +400,6 @@
                           (effort * weights.effort);
             
             task.priorityScore = score;
-            // 그래프 제거로 인해 valueScore, effortScore는 더 이상 필요하지 않으나, 
-            // 혹시 모를 확장을 위해 남겨둡니다. (현재는 사용하지 않음)
             task.valueScore = (importance * weights.importance) + (impact * weights.impact);
             task.effortScore = (effort * weights.effort);
 
@@ -471,7 +489,7 @@
             // 4. 종속성 셀렉터 업데이트
             renderDependencySelector();
 
-            // 5. DOM 업데이트
+            // 5. DOM 업데이트 (업무 목록)
             taskListContainer.innerHTML = '';
             loadingMessage.classList.add('hidden');
 
@@ -541,7 +559,10 @@
                 taskListContainer.appendChild(taskCard);
             });
 
-            // 6. 이벤트 리스너 추가
+            // 6. DAG 시각화
+            drawNetwork(currentTasks);
+
+            // 7. 이벤트 리스너 추가 (목록 항목)
             document.querySelectorAll('.delete-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const taskId = e.currentTarget.closest('.task-card').dataset.id;
@@ -554,10 +575,139 @@
                     toggleCompletion(taskId);
                 });
             });
-            
-            // 7. 그래프 렌더링 함수 호출은 삭제됨
         }
         
+        /**
+         * Vis.js를 사용하여 DAG 네트워크를 그립니다.
+         * @param {Array<Object>} tasks - 현재 업무 목록
+         */
+        function drawNetwork(tasks) {
+            const container = document.getElementById('dag-network');
+            
+            // Clear previous network
+            if (container) {
+                container.innerHTML = '';
+            }
+
+            if (tasks.length === 0 || !container) {
+                return;
+            }
+
+            const nodes = [];
+            const edges = [];
+
+            // 1. 노드(Nodes) 및 엣지(Edges) 데이터 준비
+            tasks.forEach(task => {
+                let color, statusLabel;
+                
+                // 노드 색상 및 상태 결정
+                if (task.isCompleted) {
+                    color = { background: '#9ca3af', border: '#6b7280' }; // Gray (Completed)
+                    statusLabel = '✅ 완료';
+                } else if (task.isReady) {
+                    color = { background: '#10b981', border: '#059669' }; // Green (Ready)
+                    statusLabel = '🟢 시작 가능';
+                } else {
+                    color = { background: '#f59e0b', border: '#d97706' }; // Amber (Waiting)
+                    statusLabel = '🟡 대기 중';
+                }
+
+                const scoreText = `점수: ${task.priorityScore.toFixed(1)}`;
+                const details = `\nI:${task.importance} C:${task.urgency} E:${task.impact} R:${task.effort}`;
+                
+                nodes.push({
+                    id: task.id,
+                    // HTML을 사용하면 개행 문자를 인식하여 두 줄로 표시 가능
+                    label: `${task.name}\n[${statusLabel}]`, 
+                    title: `${task.name}\n${scoreText}${details}`, // Tooltip
+                    color: color,
+                    shape: 'box',
+                    font: { color: '#ffffff', multi: 'html', size: 14 },
+                    taskData: task, // Store task data for click handling
+                });
+
+                // 엣지(Edges - 종속성) 추가
+                task.dependencies.forEach(depId => {
+                    // 종속성으로 지정된 업무가 존재하는지 확인
+                    if (tasks.find(t => t.id === depId)) {
+                        edges.push({
+                            from: depId,
+                            to: task.id,
+                            // 화살표를 더 굵고 눈에 띄게 설정 (인디고색 적용)
+                            arrows: { to: { enabled: true, scaleFactor: 1.2, type: 'arrow' } }, 
+                            color: { color: '#4f46e5', highlight: '#3730a3', hover: '#3730a3' }, // Indigo-600 color
+                            width: 3 
+                        });
+                    }
+                });
+            });
+
+            const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+
+            // 2. 그래프 옵션 설정 (DAG에 적합한 계층적 레이아웃 사용)
+            const options = {
+                interaction: {
+                    zoomView: true,
+                    dragNodes: true, // 노드 이동 허용
+                    dragView: true
+                },
+                layout: {
+                    hierarchical: {
+                        direction: 'UD', // Up-Down 레이아웃 (위에서 아래로 흐름)
+                        sortMethod: 'directed', // DAG에 따라 노드 정렬
+                        levelSeparation: 120, // 레벨 간격
+                        nodeSpacing: 180, // 노드 간격
+                    }
+                },
+                physics: {
+                    enabled: false // 안정적인 계층적 레이아웃을 위해 물리 엔진 비활성화
+                },
+                edges: {
+                    smooth: {
+                        enabled: true,
+                        type: 'cubicBezier',
+                        forceDirection: 'vertical',
+                        roundness: 0.4
+                    }
+                }
+            };
+
+            // 3. 네트워크 그리기
+            const network = new vis.Network(container, data, options);
+            
+            // 4. 클릭 이벤트 리스너 추가 (상세 정보 팝업)
+            network.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const clickedNode = nodes.find(n => n.id === nodeId);
+                    if (clickedNode && clickedNode.taskData) {
+                        const task = clickedNode.taskData;
+                        const depNames = task.dependencies.map(depId => {
+                            const depTask = tasks.find(t => t.id === depId);
+                            return depTask ? depTask.name : '알 수 없는 업무';
+                        }).join(', ');
+                        
+                        showInfoModal(
+                            `업무 상세 정보 (#${task.rank})`,
+                            `
+                            <strong class="text-indigo-600">${task.name}</strong><br>
+                            <span class="text-lg font-bold">우선순위 점수: ${task.priorityScore.toFixed(1)}</span><br>
+                            <strong>상태:</strong> ${task.isCompleted ? '✅ 완료됨' : task.isReady ? '🟢 시작 가능' : '🟡 대기 중'}<br>
+                            <hr class="my-2 border-gray-200">
+                            <strong>I (중요도):</strong> ${task.importance}<br>
+                            <strong>C (긴급도):</strong> ${task.urgency}<br>
+                            <strong>E (영향력):</strong> ${task.impact}<br>
+                            <strong>R (노력):</strong> ${task.effort}<br>
+                            <hr class="my-2 border-gray-200">
+                            <strong>선행 업무:</strong> ${depNames || '없음'}
+                            `
+                        );
+                    }
+                }
+            });
+        }
+
+
         // --- 종속성 셀렉터 렌더링 함수 ---
         function renderDependencySelector() {
             dependenciesSelect.innerHTML = '';
