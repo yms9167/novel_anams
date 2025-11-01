@@ -2,14 +2,20 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 
-# 파일 경로 설정 (app2.py와 동일한 디렉토리에서 실행된다고 가정)
-HTML_FILE_PATH = "htmls2/index6.html"
+# 💡 수정: os.path 모듈을 사용하여 현재 파일(__file__)의 디렉토리를 가져옵니다.
+# 이는 'app2.py' 파일이 어디에 있든, 그 파일의 실제 디렉토리를 기준으로 경로를 찾게 합니다.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# HTML_FILE_PATH를 절대 경로로 조합합니다.
+# 'app2.py'가 있는 디렉토리/htmls2/index6.html
+HTML_FILE_PATH = os.path.join(BASE_DIR, "htmls2", "index6.html")
 
 def load_html_content(filepath):
     """지정된 HTML 파일의 내용을 읽어옵니다."""
     try:
-        # 파일이 존재하는지 확인
+        # 파일이 존재하는지 확인 (이제 절대 경로를 사용하므로 더 안정적입니다)
         if not os.path.exists(filepath):
+            # 오류 메시지에 찾으려는 전체 경로를 포함하여 디버깅을 돕습니다.
             return f"오류: HTML 파일을 찾을 수 없습니다. 경로: {filepath}"
         
         # UTF-8 인코딩으로 파일 내용을 읽기
@@ -20,7 +26,7 @@ def load_html_content(filepath):
         return f"파일을 읽는 중 오류가 발생했습니다: {e}"
 
 # Streamlit 앱 시작
-st.set_page_config(layout="wide", page_title="HTML Renderer")
+st.set_page_config(layout="wide", page_title="업무 우선순위 정리기") # 페이지 제목도 수정했습니다.
 st.title("Streamlit으로 HTML 렌더링")
 
 # HTML 파일 내용 로드
@@ -29,13 +35,9 @@ html_content = load_html_content(HTML_FILE_PATH)
 if html_content.startswith("오류"):
     # 오류 메시지 표시
     st.error(html_content)
-    st.markdown(f"**현재 예상되는 HTML 파일 경로:** `{HTML_FILE_PATH}`")
-    st.markdown("스크린샷에 따르면, `app2.py`는 루트 폴더에 있고, HTML 파일은 `htmls2/index6.html`에 있어야 합니다.")
+    # 현재 작업 디렉토리도 확인용으로 표시하면 좋습니다.
+    st.markdown(f"**현재 작업 디렉토리 (CWD):** `{os.getcwd()}`")
+    st.markdown(f"**시도된 절대 경로:** `{HTML_FILE_PATH}`")
 else:
-    # 성공적으로 로드된 HTML 콘텐츠를 Streamlit 컴포넌트로 렌더링
-    # height와 scrolling=True를 설정하여 콘텐츠가 iframe 내에서 잘 보이도록 합니다.
-    st.subheader(f"파일: {HTML_FILE_PATH}")
-    components.html(html_content, height=800, scrolling=True)
-
-# Streamlit 앱을 실행하려면 터미널에서 다음 명령을 실행하세요:
-# streamlit run app2.py
+    # 렌더링
+    components.html(html_content, height=800, scrolling=True) # 충분한 높이를 지정합니다.
