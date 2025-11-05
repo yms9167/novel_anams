@@ -52,7 +52,7 @@
     <div class="max-w-4xl mx-auto">
         <header class="mb-8">
             <h1 class="text-4xl font-extrabold text-gray-900 leading-tight">⛓️ DAG 업무 순서 & 종속성 편집기</h1>
-            <p class="text-gray-600 mt-2">업무 간의 **순서(Sequence)**와 **필수 종속성(DAG)**을 관리하며, 종속성 편집 시 **자동 전이 규칙**을 적용합니다.</p>
+            <p class="text-gray-600 mt-2">업무 간의 **순서(Sequence)**와 **필수 종속성(DAG)**을 관리하며, 점수 및 종속성 편집 기능을 지원합니다.</p>
         </header>
         
         <!-- 0. 가중치 설정 폼 -->
@@ -186,7 +186,7 @@
             </div>
         </div>
 
-        <!-- 종속성 편집 모달 (New Feature) -->
+        <!-- 종속성 편집 모달 -->
         <div id="edit-dependency-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg">
                 <h3 class="text-xl font-bold mb-4 text-gray-800">🔗 종속성 편집: <span id="edit-task-name" class="text-indigo-600"></span></h3>
@@ -206,6 +206,54 @@
                 </div>
             </div>
         </div>
+        
+        <!-- 점수 편집 모달 (New Feature) -->
+        <div id="edit-score-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-xl">
+                <h3 class="text-xl font-bold mb-4 text-gray-800">✏️ 업무 점수 편집: <span id="edit-score-task-name" class="text-indigo-600"></span></h3>
+                
+                <p class="text-sm text-gray-600 mb-4">
+                    새로운 업무 환경에 맞춰 이 업무의 중요도, 긴급도, 영향력, 노력 점수를 재평가해 주세요.
+                </p>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- 중요도 -->
+                    <div>
+                        <label for="edit-importance" class="block text-sm font-medium text-gray-700">중요도 (I) [1-10]</label>
+                        <input type="range" id="edit-importance" min="1" max="10" value="5" class="mt-1 w-full" oninput="updateEditSliderDisplay('importance', this.value)">
+                        <output id="edit-importance-value" class="block text-center font-bold text-indigo-600">5</output>
+                        <p id="edit-importance-description" class="text-xs text-gray-500 text-center mt-1 h-12 flex items-center justify-center"></p>
+                    </div>
+                    <!-- 긴급도 -->
+                    <div>
+                        <label for="edit-urgency" class="block text-sm font-medium text-gray-700">긴급도 (C) [1-10]</label>
+                        <input type="range" id="edit-urgency" min="1" max="10" value="5" class="mt-1 w-full" oninput="updateEditSliderDisplay('urgency', this.value)">
+                        <output id="edit-urgency-value" class="block text-center font-bold text-indigo-600">5</output>
+                        <p id="edit-urgency-description" class="text-xs text-gray-500 text-center mt-1 h-12 flex items-center justify-center"></p>
+                    </div>
+                    <!-- 영향력 -->
+                    <div>
+                        <label for="edit-impact" class="block text-sm font-medium text-gray-700">영향력 (E) [1-10]</label>
+                        <input type="range" id="edit-impact" min="1" max="10" value="5" class="mt-1 w-full" oninput="updateEditSliderDisplay('impact', this.value)">
+                        <output id="edit-impact-value" class="block text-center font-bold text-indigo-600">5</output>
+                        <p id="edit-impact-description" class="text-xs text-gray-500 text-center mt-1 h-12 flex items-center justify-center"></p>
+                    </div>
+                    <!-- 노력 -->
+                    <div>
+                        <label for="edit-effort" class="block text-sm font-medium text-gray-700">노력 (R) [1-10]</label>
+                        <input type="range" id="edit-effort" min="1" max="10" value="5" class="mt-1 w-full" oninput="updateEditSliderDisplay('effort', this.value)">
+                        <output id="edit-effort-value" class="block text-center font-bold text-indigo-600">5</output>
+                        <p id="edit-effort-description" class="text-xs text-gray-500 text-center mt-1 h-12 flex items-center justify-center"></p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button id="edit-score-modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition">취소</button>
+                    <button id="edit-score-modal-save-btn" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">점수 저장</button>
+                </div>
+            </div>
+        </div>
+        
     </div>
 
     <script>
@@ -226,11 +274,16 @@
         const editDependenciesSelect = document.getElementById('edit-dependencies-select');
         const editModalSaveBtn = document.getElementById('edit-modal-save-btn');
         const editModalCancelBtn = document.getElementById('edit-modal-cancel-btn');
+        
+        const editScoreModal = document.getElementById('edit-score-modal'); // NEW
+        const editScoreModalSaveBtn = document.getElementById('edit-score-modal-save-btn'); // NEW
+        const editScoreModalCancelBtn = document.getElementById('edit-score-modal-cancel-btn'); // NEW
 
 
         let currentTasks = [];
         let taskToDeleteId = null;
-        let taskToEditId = null; // 현재 편집 중인 업무 ID
+        let taskToEditId = null; // 종속성 편집 ID
+        let taskToEditScoreId = null; // 점수 편집 ID // NEW
         
         // 초기 가중치 설정 (사용자 정의 가능)
         let currentWeights = { importance: 3, urgency: 3, impact: 2, effort: 1 };
@@ -327,7 +380,9 @@
             return `[${score}점] ${description}`;
         }
 
-
+        /**
+         * 업무 추가 폼의 슬라이더 디스플레이를 업데이트합니다.
+         */
         function updateSliderDisplay(id, value) {
             const valueElement = document.getElementById(`${id}-value`);
             const descElement = document.getElementById(`${id}-description`);
@@ -338,14 +393,26 @@
                 descElement.textContent = getScoreDescription(id, value);
             }
         }
+        
+        /**
+         * 점수 편집 모달의 슬라이더 디스플레이를 업데이트합니다. (NEW)
+         */
+        function updateEditSliderDisplay(id, value) {
+            const valueElement = document.getElementById(`edit-${id}-value`);
+            const descElement = document.getElementById(`edit-${id}-description`);
+            if (valueElement) {
+                valueElement.textContent = value;
+            }
+            if (descElement) {
+                descElement.textContent = getScoreDescription(id, value);
+            }
+        }
+
 
         // --- DAG (Directed Acyclic Graph) 관련 함수 ---
 
         /**
          * DAG 순환 종속성을 확인합니다. 
-         * @param {Array<string>} newDependencies - taskId에 새로 설정하려는 종속성 목록
-         * @param {string} taskId - 변경하려는 현재 업무 ID
-         * @returns {boolean} 순환 종속성이 발생하면 true
          */
         function checkCyclic(newDependencies, taskId) {
             // 임시로 종속성을 업데이트한 태스크 목록 생성
@@ -386,13 +453,9 @@
                 recursionStack.delete(currentId);
             }
             
-            // 변경된 태스크에서 출발하는 역방향 순환만 확인해도 됨 (최적화)
-            if (newDependencies.includes(taskId)) return true; // 자기 자신에 종속되는 경우
-
             // 새 종속성에서부터 출발하여 현재 태스크로 돌아오는 경로가 있는지 확인
             for(const depId of newDependencies) {
-                if(depId && !visited.has(depId)) {
-                    // Check if a path exists from depId back to taskId (which would be a cycle)
+                if(depId) {
                     const pathExists = (targetId) => {
                         const queue = [targetId];
                         const pathVisited = new Set();
@@ -409,7 +472,6 @@
                         }
                         return false;
                     };
-                    // Instead of full DFS, let's just check if any new direct dependency (depId) has a path to taskId
                     if(pathExists(depId)) return true;
                 }
             }
@@ -427,9 +489,6 @@
 
         /**
          * 사용자 요청에 따라 전이 종속성 규칙을 적용합니다.
-         * A -> B, B -> C 이면, C는 A에도 종속되어야 함.
-         * @param {Array<string>} directDependencies - 사용자가 직접 선택한 종속성 목록 (T의 B)
-         * @returns {Array<string>} 전이 종속성이 적용된 최종 종속성 목록 (T의 [A, B])
          */
         function applyTransitiveRule(directDependencies) {
             const transitiveDependencies = new Set(directDependencies);
@@ -460,8 +519,6 @@
 
         /**
          * 특정 업무가 시작 가능한지 (모든 선행 업무가 완료되었는지) 확인합니다.
-         * @param {Object} task - 업무 객체
-         * @returns {boolean} 시작 가능 여부
          */
         function isTaskReady(task) {
             if (task.isCompleted) return false; // 이미 완료되었으면 Ready 상태에서 제외
@@ -535,7 +592,8 @@
          */
         function calculatePriority(task) {
             const weights = currentWeights; 
-            const importance = parseInt(task.importance);
+            // 점수는 문자열로 저장되므로 parseInt로 변환해야 합니다.
+            const importance = parseInt(task.importance); 
             const urgency = parseInt(task.urgency);
             const impact = parseInt(task.impact);
             const effort = parseInt(task.effort);
@@ -555,7 +613,12 @@
                 return tasksJson ? JSON.parse(tasksJson).map(t => ({
                     ...t,
                     isCompleted: t.isCompleted === true, 
-                    dependencies: t.dependencies || []
+                    dependencies: t.dependencies || [],
+                    // ensure scores are strings if not present (to match form inputs)
+                    importance: t.importance ? String(t.importance) : '5', 
+                    urgency: t.urgency ? String(t.urgency) : '5',
+                    impact: t.impact ? String(t.impact) : '5',
+                    effort: t.effort ? String(t.effort) : '5',
                 })) : [];
             } catch (e) {
                 console.error("localStorage 로드 실패:", e);
@@ -686,10 +749,15 @@
                             </p>
                         ` : ''}
                     </div>
-                    <div class="flex items-center space-x-3 mt-3 md:mt-0 ml-4">
+                    <div class="flex flex-wrap items-center space-x-3 mt-3 md:mt-0 ml-4">
                         <span class="priority-score text-gray-800">${task.priorityScore.toFixed(1)}</span>
                         
-                        <!-- 종속성 편집 버튼 추가 -->
+                        <!-- 점수 편집 버튼 추가 (NEW) -->
+                        <button class="edit-score-btn px-3 py-1 text-sm font-medium rounded-lg transition duration-150 bg-blue-500 hover:bg-blue-600 text-white">
+                            점수 편집
+                        </button>
+                        
+                        <!-- 종속성 편집 버튼 -->
                         <button class="edit-dep-btn px-3 py-1 text-sm font-medium rounded-lg transition duration-150 bg-indigo-500 hover:bg-indigo-600 text-white">
                             종속성 편집
                         </button>
@@ -729,8 +797,78 @@
                     openEditDependencyModal(taskId);
                 });
             });
+            document.querySelectorAll('.edit-score-btn').forEach(button => { // NEW
+                button.addEventListener('click', (e) => {
+                    const taskId = e.currentTarget.closest('.task-card').dataset.id;
+                    openEditScoreModal(taskId);
+                });
+            });
         }
         
+        // --- 점수 편집 모달 관련 함수 (NEW) ---
+
+        function openEditScoreModal(taskId) {
+            const task = currentTasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            taskToEditScoreId = taskId;
+            document.getElementById('edit-score-task-name').textContent = task.name;
+            
+            const fields = ['importance', 'urgency', 'impact', 'effort'];
+            
+            fields.forEach(field => {
+                const inputElement = document.getElementById(`edit-${field}`);
+                const value = task[field];
+                
+                // 1. input 값 설정
+                inputElement.value = value;
+                
+                // 2. 디스플레이 업데이트 (점수 및 설명)
+                updateEditSliderDisplay(field, value);
+                
+                // 3. 임시 리스너 설정 (모달이 닫힐 때 해제되므로 여기서만 설정)
+                inputElement.oninput = function() {
+                    updateEditSliderDisplay(field, this.value);
+                };
+            });
+
+            editScoreModal.classList.remove('hidden');
+        }
+
+        editScoreModalSaveBtn.addEventListener('click', () => {
+            const taskId = taskToEditScoreId;
+            if (!taskId) return;
+
+            const taskIndex = currentTasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) return;
+            
+            // 새 점수 가져오기
+            const newImportance = document.getElementById('edit-importance').value;
+            const newUrgency = document.getElementById('edit-urgency').value;
+            const newImpact = document.getElementById('edit-impact').value;
+            const newEffort = document.getElementById('edit-effort').value;
+
+            // 업무 객체 업데이트
+            currentTasks[taskIndex].importance = newImportance;
+            currentTasks[taskIndex].urgency = newUrgency;
+            currentTasks[taskIndex].impact = newImpact;
+            currentTasks[taskIndex].effort = newEffort;
+            
+            // 우선순위 재계산 및 저장
+            saveTasks(currentTasks);
+            renderTasks();
+
+            // 모달 닫기
+            editScoreModal.classList.add('hidden');
+            taskToEditScoreId = null;
+        });
+
+        editScoreModalCancelBtn.addEventListener('click', () => {
+            editScoreModal.classList.add('hidden');
+            taskToEditScoreId = null;
+        });
+
+
         // --- 종속성 편집 모달 관련 함수 ---
 
         function openEditDependencyModal(taskId) {
@@ -800,7 +938,6 @@
 
         /**
          * Vis.js를 사용하여 DAG 네트워크를 그립니다.
-         * (이전 버전과 동일한 시각화 로직)
          */
         function drawNetwork(tasks) {
             const container = document.getElementById('dag-network');
@@ -1021,6 +1158,7 @@
             const taskName = document.getElementById('task-name').value.trim();
             if (!taskName) return;
             
+            // 점수는 문자열로 저장
             const importanceValue = document.getElementById('importance').value;
             const urgencyValue = document.getElementById('urgency').value;
             const impactValue = document.getElementById('impact').value;
@@ -1028,11 +1166,7 @@
             
             const selectedDependencies = Array.from(dependenciesSelect.selectedOptions).map(option => option.value);
 
-            // 1. 순환 종속성 검사 (새 업무 추가 시에는 순환될 가능성이 낮지만, 안전을 위해 체크)
-            // 새 업무는 ID가 없으므로 임시로 UUID를 사용하고 checkCyclic은 임시 목록을 사용해야 함. 
-            // 현재 로직은 기존 업무에 종속성을 추가하는 경우에 더 강력하므로, 새 업무 추가 시에는 전이 규칙만 적용합니다.
-
-            // 2. 전이 종속성 규칙 적용 (Transitive Rule Application)
+            // 1. 전이 종속성 규칙 적용 (Transitive Rule Application)
             const finalDependencies = applyTransitiveRule(selectedDependencies);
 
             const newTask = {
@@ -1085,7 +1219,8 @@
             // 3. 초기 로드 시 슬라이더 디스플레이 초기화
             const sliders = ['importance', 'urgency', 'impact', 'effort'];
             sliders.forEach(id => {
-                updateSliderDisplay(id, document.getElementById(id).value);
+                // `updateSliderDisplay`는 추가 폼의 슬라이더를 업데이트합니다.
+                updateSliderDisplay(id, document.getElementById(id).value); 
             });
         };
 
