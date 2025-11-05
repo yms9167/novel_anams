@@ -3,8 +3,12 @@ import os
 import glob
 from streamlit.components.v1 import html
 
-# Set the path to the HTML directory (based on the provided image structure)
+# Set the path to the HTML directory
 HTML_DIR = "htmls2"
+
+# --- 명시적으로 불러올 파일 목록 정의 (사용자 요청 반영) ---
+# 이 파일들만 Streamlit에서 선택 가능하도록 명시적으로 지정합니다.
+EXPLICIT_FILES = ["index6.html", "index7.html"]
 
 # --- Streamlit Page Configuration ---
 st.set_page_config(
@@ -30,26 +34,25 @@ def load_and_display_html(filepath):
         )
         
     except FileNotFoundError:
-        st.error(f"오류: 파일을 찾을 수 없습니다. 경로: `{filepath}`")
+        st.error(f"오류: 파일을 찾을 수 없습니다. 경로: `{filepath}`. `{HTML_DIR}` 폴더에 `{os.path.basename(filepath)}` 파일이 있는지 확인해주세요.")
     except Exception as e:
         st.error(f"HTML 파일을 로드하는 중 오류가 발생했습니다: {e}")
 
 # --- Main App Logic ---
 
-st.title("Streamlit HTML 파일 미리보기")
+st.title("Streamlit HTML 파일 미리보기 (명시적 파일)")
 st.markdown("---")
 
-# Find all HTML files in the specified directory
-# glob is used to find all files matching the pattern
-html_files_full_path = glob.glob(os.path.join(HTML_DIR, "*.html"))
+# Display names (used for selectbox)
+file_display_names = EXPLICIT_FILES
 
-if not html_files_full_path:
-    # Display warning if no HTML files are found
-    st.warning(f"경고: `{HTML_DIR}` 폴더에서 `.html` 파일을 찾을 수 없습니다. 파일 경로와 폴더 구조를 확인해주세요.")
+# Full paths (참고용. 실제 파일 로딩은 selected_file_name으로 경로를 재구성하여 처리됩니다.)
+html_files_full_path = [os.path.join(HTML_DIR, f) for f in EXPLICIT_FILES]
+
+
+if not file_display_names:
+    st.warning("경고: 명시적으로 정의된 HTML 파일 목록이 비어 있습니다.")
 else:
-    # Create a list of file names (e.g., "index6.html") for display in the dropdown
-    file_display_names = [os.path.basename(f) for f in html_files_full_path]
-    
     # Sidebar for file selection
     st.sidebar.header("HTML 파일 선택")
     selected_file_name = st.sidebar.selectbox(
@@ -69,4 +72,5 @@ else:
 
 # Display available files in the sidebar footer for debugging/info
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"**총 {len(html_files_full_path)}개의 파일 발견**")
+st.sidebar.markdown(f"**명시적으로 정의된 파일 수: {len(file_display_names)}**")
+st.sidebar.markdown(f"불러오는 파일: `{', '.join(file_display_names)}`")
